@@ -35,6 +35,18 @@ uv run mypy src/
 uv run ruff check src/ tests/
 ```
 
+## 代码质量检查
+
+每次修改代码后，必须运行以下检查：
+
+```bash
+# 代码格式和 lint 检查
+uv run ruff check src/ tests/
+
+# 类型检查
+uv run mypy src/
+```
+
 ## 代码架构
 
 ```

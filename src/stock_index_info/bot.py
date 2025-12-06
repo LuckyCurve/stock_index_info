@@ -5,7 +5,7 @@ import logging
 from functools import wraps
 from typing import Callable, Coroutine, Any
 
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -309,14 +309,19 @@ async def sync_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
-async def startup_sync(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
-    """Run sync on bot startup."""
-    logger.info("Running startup sync...")
-    try:
-        results = await _do_sync()
-        logger.info(f"Startup sync complete: {results}")
-    except Exception as e:
-        logger.error(f"Startup sync failed: {e}")
+async def post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Set bot commands on startup."""
+    logger.info("Setting bot commands...")
+    commands = [
+        BotCommand("start", "Start the bot and show help"),
+        BotCommand("help", "Show help message"),
+        BotCommand("query", "Query stock index membership"),
+        BotCommand("constituents", "List index constituents"),
+        BotCommand("sync", "Sync data from Wikipedia"),
+        BotCommand("status", "Show bot status"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("Bot commands set successfully")
 
 
 def main() -> None:
@@ -356,8 +361,8 @@ def main() -> None:
         )
         logger.info(f"Scheduled daily sync job at {sync_time}")
 
-    # Run sync on startup
-    application.post_init = startup_sync
+    # Set bot commands on startup
+    application.post_init = post_init
 
     # Start the bot (runs forever)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
