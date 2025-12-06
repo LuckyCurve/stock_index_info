@@ -34,7 +34,9 @@ class TestSP500Scraper:
     @patch("stock_index_info.scrapers.sp500.requests.get")
     def test_fetch_current_constituents(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
-        mock_response.text = f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"
+        mock_response.text = (
+            f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"
+        )
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
@@ -54,7 +56,9 @@ class TestSP500Scraper:
     @patch("stock_index_info.scrapers.sp500.requests.get")
     def test_fetch_parses_changes(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
-        mock_response.text = f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"
+        mock_response.text = (
+            f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"
+        )
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 

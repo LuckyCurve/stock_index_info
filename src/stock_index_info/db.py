@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS constituents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
     index_code TEXT NOT NULL CHECK (index_code IN ('sp500', 'nasdaq100')),
-    added_date TEXT NOT NULL,
+    added_date TEXT,
     removed_date TEXT,
     reason TEXT,
     UNIQUE(ticker, index_code, added_date)
@@ -41,7 +41,7 @@ def insert_constituent(conn: sqlite3.Connection, record: ConstituentRecord) -> N
         (
             record.ticker,
             record.index_code,
-            record.added_date.isoformat(),
+            record.added_date.isoformat() if record.added_date else None,
             record.removed_date.isoformat() if record.removed_date else None,
             record.reason,
         ),
@@ -77,7 +77,7 @@ def get_stock_memberships(conn: sqlite3.Connection, ticker: str) -> list[IndexMe
             IndexMembership(
                 index_code=index_code,
                 index_name=INDEX_NAMES.get(index_code, index_code),
-                added_date=date.fromisoformat(row[1]),
+                added_date=date.fromisoformat(row[1]) if row[1] else None,
                 removed_date=date.fromisoformat(row[2]) if row[2] else None,
                 reason=row[3],
             )

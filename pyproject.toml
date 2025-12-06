@@ -29,6 +29,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "mypy>=1.19.0",
     "ruff>=0.14.8",
+    "pre-commit>=4.0.0",
 ]
 
 [tool.ruff]

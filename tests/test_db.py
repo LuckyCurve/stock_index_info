@@ -17,9 +17,7 @@ from stock_index_info.models import ConstituentRecord
 class TestInitDb:
     def test_creates_tables(self, temp_db: Path) -> None:
         conn = init_db(temp_db)
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [row[0] for row in cursor.fetchall()]
         conn.close()
         assert "constituents" in tables

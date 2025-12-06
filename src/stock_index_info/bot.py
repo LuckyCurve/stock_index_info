@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 def restricted(
-    func: Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None]]
+    func: Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None]],
 ) -> Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None]]:
     """Decorator to restrict bot access to allowed users only."""
 
@@ -51,9 +51,7 @@ def restricted(
         if user is None or user.id not in ALLOWED_USER_IDS:
             logger.warning(f"Unauthorized access attempt by user {user}")
             if update.message:
-                await update.message.reply_text(
-                    "Sorry, you are not authorized to use this bot."
-                )
+                await update.message.reply_text("Sorry, you are not authorized to use this bot.")
             return
         return await func(update, context)
 
@@ -193,12 +191,23 @@ async def ticker_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not update.message or not update.message.text:
         return
 
-    ticker = update.message.text.strip().upper()
-    # Basic validation: 1-5 uppercase letters
-    if not ticker.isalpha() or len(ticker) > 5:
+    text = update.message.text.strip()
+
+    # Ignore messages that are clearly not ticker queries (contain spaces, numbers, etc.)
+    if " " in text or any(c.isdigit() for c in text):
         return
 
-    await _query_ticker(update, ticker)
+    ticker = text.upper()
+
+    # Valid ticker: 1-5 uppercase letters
+    if ticker.isalpha() and len(ticker) <= 5:
+        await _query_ticker(update, ticker)
+    elif ticker.isalpha() and len(ticker) > 5:
+        # Looks like user tried to enter a company name instead of ticker
+        await update.message.reply_text(
+            f"'{text}' looks like a company name, not a ticker symbol.\n"
+            "Please use the stock ticker (e.g., AMZN for Amazon, AAPL for Apple)."
+        )
 
 
 async def _query_ticker(update: Update, ticker: str) -> None:
@@ -220,9 +229,7 @@ async def _query_ticker(update: Update, ticker: str) -> None:
         memberships = get_stock_memberships(conn, ticker)
 
         if not memberships:
-            await update.message.reply_text(
-                f"{ticker} not found in any tracked index."
-            )
+            await update.message.reply_text(f"{ticker} not found in any tracked index.")
             return
 
         # Build response
@@ -231,24 +238,23 @@ async def _query_ticker(update: Update, ticker: str) -> None:
         lines.append("-" * 44)
 
         for m in memberships:
+            added_str = m.added_date.isoformat() if m.added_date else "?"
             removed_str = m.removed_date.isoformat() if m.removed_date else "-"
-            lines.append(
-                f"{m.index_name:<12} {m.added_date.isoformat():<12} {removed_str:<12} {m.years_in_index:>6.1f}"
-            )
+            years_str = f"{m.years_in_index:>6.1f}" if m.years_in_index is not None else "     ?"
+            lines.append(f"{m.index_name:<12} {added_str:<12} {removed_str:<12} {years_str}")
 
         lines.append("```")
 
-        await update.message.reply_text(
-            "\n".join(lines), parse_mode="Markdown"
-        )
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"Error querying ticker {ticker}: {e}")
+        await update.message.reply_text(f"Error querying {ticker}. Please try again.")
     finally:
         conn.close()
 
 
 @restricted
-async def constituents_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def constituents_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /constituents command."""
     if not update.message:
         return
@@ -263,9 +269,7 @@ async def constituents_command(
 
     index_code = context.args[0].lower()
     if index_code not in ("sp500", "nasdaq100"):
-        await update.message.reply_text(
-            "Invalid index. Available indices: sp500, nasdaq100"
-        )
+        await update.message.reply_text("Invalid index. Available indices: sp500, nasdaq100")
         return
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -286,8 +290,7 @@ async def constituents_command(
 
         index_name = "S&P 500" if index_code == "sp500" else "NASDAQ 100"
         await update.message.reply_text(
-            f"*{index_name}* constituents ({len(tickers)}):\n\n"
-            f"{', '.join(tickers)}",
+            f"*{index_name}* constituents ({len(tickers)}):\n\n{', '.join(tickers)}",
             parse_mode="Markdown",
         )
     finally:
@@ -304,9 +307,7 @@ async def sync_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     results = await _do_sync()
 
-    await update.message.reply_text(
-        "Sync complete!\n\n" + "\n".join(results)
-    )
+    await update.message.reply_text("Sync complete!\n\n" + "\n".join(results))
 
 
 async def post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
@@ -346,9 +347,7 @@ def main() -> None:
     application.add_handler(CommandHandler("sync", sync_command))
 
     # Handle direct ticker messages (text messages that look like tickers)
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, ticker_message)
-    )
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ticker_message))
 
     # Schedule daily sync using JobQueue
     job_queue = application.job_queue

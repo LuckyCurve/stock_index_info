@@ -17,7 +17,7 @@ class ConstituentRecord:
 
     ticker: str
     index_code: str
-    added_date: date
+    added_date: Optional[date] = None
     removed_date: Optional[date] = None
     company_name: Optional[str] = None
     reason: Optional[str] = None
@@ -29,7 +29,7 @@ class IndexMembership:
 
     index_code: str
     index_name: str
-    added_date: date
+    added_date: Optional[date] = None
     removed_date: Optional[date] = None
     reason: Optional[str] = None
 
@@ -39,8 +39,13 @@ class IndexMembership:
         return self.removed_date is None
 
     @property
-    def years_in_index(self) -> float:
-        """Calculate years the stock has been/was in the index."""
+    def years_in_index(self) -> Optional[float]:
+        """Calculate years the stock has been/was in the index.
+
+        Returns None if added_date is unknown.
+        """
+        if self.added_date is None:
+            return None
         end_date = self.removed_date or date.today()
         delta = end_date - self.added_date
         return delta.days / 365.25
