@@ -6,7 +6,7 @@ from typing import Optional
 
 import httpx
 import pandas as pd
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from stock_index_info.models import ConstituentRecord
 from stock_index_info.scrapers.base import BaseScraper
@@ -54,7 +54,7 @@ class NASDAQ100Scraper(BaseScraper):
 
         return records
 
-    def _try_parse_current_table(self, table: BeautifulSoup) -> list[ConstituentRecord]:
+    def _try_parse_current_table(self, table: Tag) -> list[ConstituentRecord]:
         """Try to parse as current constituents table."""
         records: list[ConstituentRecord] = []
 
@@ -87,7 +87,7 @@ class NASDAQ100Scraper(BaseScraper):
         return records
 
     def _try_parse_changes_table(
-        self, table: BeautifulSoup, current_tickers: set[str]
+        self, table: Tag, current_tickers: set[str]
     ) -> list[ConstituentRecord]:
         """Try to parse as changes table."""
         records: list[ConstituentRecord] = []

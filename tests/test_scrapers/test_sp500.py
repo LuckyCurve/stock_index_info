@@ -3,7 +3,6 @@
 from datetime import date
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from stock_index_info.scrapers.sp500 import SP500Scraper
 

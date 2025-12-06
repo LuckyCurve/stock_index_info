@@ -6,7 +6,7 @@ from typing import Optional
 
 import httpx
 import pandas as pd
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from stock_index_info.models import ConstituentRecord
 from stock_index_info.scrapers.base import BaseScraper
@@ -45,7 +45,7 @@ class SP500Scraper(BaseScraper):
 
         return records
 
-    def _parse_current_table(self, table: BeautifulSoup) -> list[ConstituentRecord]:
+    def _parse_current_table(self, table: Tag) -> list[ConstituentRecord]:
         """Parse the current S&P 500 constituents table."""
         records: list[ConstituentRecord] = []
 
@@ -98,7 +98,7 @@ class SP500Scraper(BaseScraper):
 
         return records
 
-    def _parse_changes_table(self, table: BeautifulSoup) -> list[ConstituentRecord]:
+    def _parse_changes_table(self, table: Tag) -> list[ConstituentRecord]:
         """Parse the S&P 500 historical changes table."""
         records: list[ConstituentRecord] = []
 

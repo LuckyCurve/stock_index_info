@@ -3,7 +3,6 @@
 from datetime import date
 from pathlib import Path
 
-import pytest
 
 from stock_index_info.db import init_db, insert_constituent, get_stock_memberships
 from stock_index_info.models import ConstituentRecord

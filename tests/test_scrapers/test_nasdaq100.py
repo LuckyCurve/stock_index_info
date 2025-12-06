@@ -1,9 +1,7 @@
 """Tests for NASDAQ 100 Wikipedia scraper."""
 
-from datetime import date
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from stock_index_info.scrapers.nasdaq100 import NASDAQ100Scraper
 

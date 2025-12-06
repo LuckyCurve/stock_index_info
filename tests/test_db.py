@@ -4,7 +4,6 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-import pytest
 
 from stock_index_info.db import (
     init_db,
