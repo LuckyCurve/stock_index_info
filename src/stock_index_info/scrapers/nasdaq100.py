@@ -33,28 +33,37 @@ class NASDAQ100Scraper(BaseScraper):
         soup = BeautifulSoup(response.text, "html.parser")
         tables = soup.find_all("table", class_="wikitable")
 
+        # First pass: parse changes table to get real added dates
+        added_dates: dict[str, date] = {}  # ticker -> added_date
+        removed_records: list[ConstituentRecord] = []
+        for table in tables:
+            added, removed = self._try_parse_changes_table(table)
+            if added or removed:
+                added_dates.update(added)
+                removed_records.extend(removed)
+                break
+
+        # Second pass: parse current constituents with real dates
         records: list[ConstituentRecord] = []
         current_tickers: set[str] = set()
-
-        # Parse current constituents table
         for table in tables:
-            current = self._try_parse_current_table(table)
+            current = self._try_parse_current_table(table, added_dates)
             if current:
                 for r in current:
                     current_tickers.add(r.ticker)
                 records.extend(current)
                 break
 
-        # Parse changes table
-        for table in tables:
-            changes = self._try_parse_changes_table(table, current_tickers)
-            if changes:
-                records.extend(changes)
-                break
+        # Add removed records (only for tickers not in current)
+        for r in removed_records:
+            if r.ticker not in current_tickers:
+                records.append(r)
 
         return records
 
-    def _try_parse_current_table(self, table: Tag) -> list[ConstituentRecord]:
+    def _try_parse_current_table(
+        self, table: Tag, added_dates: dict[str, date]
+    ) -> list[ConstituentRecord]:
         """Try to parse as current constituents table."""
         records: list[ConstituentRecord] = []
 
@@ -72,11 +81,14 @@ class NASDAQ100Scraper(BaseScraper):
 
                 company = str(row.get("company", ""))
 
+                # Use real added date from changes table if available
+                added_date = added_dates.get(ticker, date(1985, 1, 31))
+
                 records.append(
                     ConstituentRecord(
                         ticker=ticker,
                         index_code=self.index_code,
-                        added_date=date(1985, 1, 31),  # NASDAQ 100 inception
+                        added_date=added_date,
                         removed_date=None,
                         company_name=company if company != "nan" else None,
                     )
@@ -87,10 +99,15 @@ class NASDAQ100Scraper(BaseScraper):
         return records
 
     def _try_parse_changes_table(
-        self, table: Tag, current_tickers: set[str]
-    ) -> list[ConstituentRecord]:
-        """Try to parse as changes table."""
-        records: list[ConstituentRecord] = []
+        self, table: Tag
+    ) -> tuple[dict[str, date], list[ConstituentRecord]]:
+        """Try to parse as changes table.
+        
+        Returns:
+            Tuple of (added_dates dict, removed records list)
+        """
+        added_dates: dict[str, date] = {}
+        removed_records: list[ConstituentRecord] = []
 
         try:
             df = pd.read_html(StringIO(str(table)))[0]
@@ -105,7 +122,7 @@ class NASDAQ100Scraper(BaseScraper):
             # Check if this looks like a changes table
             cols_str = " ".join(str(c).lower() for c in df.columns)
             if "added" not in cols_str and "removed" not in cols_str:
-                return []
+                return {}, []
 
             for _, row in df.iterrows():
                 effective_date = self._find_date(row)
@@ -114,8 +131,8 @@ class NASDAQ100Scraper(BaseScraper):
 
                 # Handle removed stocks
                 removed_ticker = self._find_removed_ticker(row)
-                if removed_ticker and removed_ticker not in current_tickers:
-                    records.append(
+                if removed_ticker:
+                    removed_records.append(
                         ConstituentRecord(
                             ticker=removed_ticker,
                             index_code=self.index_code,
@@ -124,22 +141,15 @@ class NASDAQ100Scraper(BaseScraper):
                         )
                     )
 
-                # Handle added stocks (update their add date)
+                # Handle added stocks - record their real add date
                 added_ticker = self._find_added_ticker(row)
                 if added_ticker:
-                    records.append(
-                        ConstituentRecord(
-                            ticker=added_ticker,
-                            index_code=self.index_code,
-                            added_date=effective_date,
-                            removed_date=None,
-                        )
-                    )
+                    added_dates[added_ticker] = effective_date
 
         except Exception:
             pass
 
-        return records
+        return added_dates, removed_records
 
     def _find_date(self, row: pd.Series) -> Optional[date]:
         """Find and parse date from row."""

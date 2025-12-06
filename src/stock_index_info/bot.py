@@ -25,6 +25,7 @@ from stock_index_info.config import (
 from stock_index_info.db import (
     init_db,
     insert_constituent,
+    delete_index_data,
     get_stock_memberships,
     get_index_constituents,
 )
@@ -60,7 +61,7 @@ def restricted(
 
 
 async def _do_sync() -> list[str]:
-    """Execute sync logic and return results."""
+    """Execute full sync - delete old data and re-fetch from Wikipedia."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = init_db(DB_PATH)
 
@@ -69,6 +70,11 @@ async def _do_sync() -> list[str]:
 
     for scraper in scrapers:
         try:
+            # Full sync: delete existing data for this index first
+            deleted = delete_index_data(conn, scraper.index_code)
+            logger.info(f"Deleted {deleted} old records for {scraper.index_name}")
+
+            # Fetch and insert fresh data
             records = scraper.fetch()
             for record in records:
                 insert_constituent(conn, record)
@@ -303,6 +309,16 @@ async def sync_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+async def startup_sync(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Run sync on bot startup."""
+    logger.info("Running startup sync...")
+    try:
+        results = await _do_sync()
+        logger.info(f"Startup sync complete: {results}")
+    except Exception as e:
+        logger.error(f"Startup sync failed: {e}")
+
+
 def main() -> None:
     """Start the Telegram bot with scheduled sync."""
     errors = validate_config()
@@ -339,6 +355,9 @@ def main() -> None:
             name="daily_sync",
         )
         logger.info(f"Scheduled daily sync job at {sync_time}")
+
+    # Run sync on startup
+    application.post_init = startup_sync
 
     # Start the bot (runs forever)
     application.run_polling(allowed_updates=Update.ALL_TYPES)

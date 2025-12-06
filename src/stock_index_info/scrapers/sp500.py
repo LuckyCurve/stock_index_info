@@ -34,14 +34,21 @@ class SP500Scraper(BaseScraper):
         tables = soup.find_all("table", class_="wikitable")
 
         records: list[ConstituentRecord] = []
+        current_tickers: set[str] = set()
 
         # Parse current constituents (first table)
         if len(tables) >= 1:
-            records.extend(self._parse_current_table(tables[0]))
+            current_records = self._parse_current_table(tables[0])
+            for r in current_records:
+                current_tickers.add(r.ticker)
+            records.extend(current_records)
 
-        # Parse historical changes (second table)
+        # Parse historical changes (second table) - only for removed stocks not in current
         if len(tables) >= 2:
-            records.extend(self._parse_changes_table(tables[1]))
+            removed_records = self._parse_changes_table(tables[1])
+            for r in removed_records:
+                if r.ticker not in current_tickers:
+                    records.append(r)
 
         return records
 

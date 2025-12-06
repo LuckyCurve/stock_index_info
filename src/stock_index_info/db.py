@@ -49,6 +49,16 @@ def insert_constituent(conn: sqlite3.Connection, record: ConstituentRecord) -> N
     conn.commit()
 
 
+def delete_index_data(conn: sqlite3.Connection, index_code: str) -> int:
+    """Delete all data for an index. Returns number of rows deleted."""
+    cursor = conn.execute(
+        "DELETE FROM constituents WHERE index_code = ?",
+        (index_code,),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
 def get_stock_memberships(conn: sqlite3.Connection, ticker: str) -> list[IndexMembership]:
     """Get all index memberships for a stock."""
     cursor = conn.execute(
