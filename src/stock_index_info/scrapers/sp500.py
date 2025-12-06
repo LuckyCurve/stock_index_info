@@ -16,6 +16,9 @@ class SP500Scraper(BaseScraper):
     """Scrapes S&P 500 constituent data from Wikipedia."""
 
     WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
 
     @property
     def index_code(self) -> str:
@@ -27,7 +30,7 @@ class SP500Scraper(BaseScraper):
 
     def fetch(self) -> list[ConstituentRecord]:
         """Fetch current constituents and historical changes."""
-        response = httpx.get(self.WIKI_URL, timeout=30.0)
+        response = httpx.get(self.WIKI_URL, headers=self.HEADERS, timeout=30.0)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
