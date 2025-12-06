@@ -4,9 +4,9 @@ from datetime import datetime, date
 from io import StringIO
 from typing import Optional
 
-import httpx
 import pandas as pd
 from bs4 import BeautifulSoup, Tag
+from curl_cffi import requests
 
 from stock_index_info.models import ConstituentRecord
 from stock_index_info.scrapers.base import BaseScraper
@@ -16,9 +16,6 @@ class NASDAQ100Scraper(BaseScraper):
     """Scrapes NASDAQ 100 constituent data from Wikipedia."""
 
     WIKI_URL = "https://en.wikipedia.org/wiki/Nasdaq-100"
-    HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
 
     @property
     def index_code(self) -> str:
@@ -30,7 +27,7 @@ class NASDAQ100Scraper(BaseScraper):
 
     def fetch(self) -> list[ConstituentRecord]:
         """Fetch current constituents and historical changes."""
-        response = httpx.get(self.WIKI_URL, headers=self.HEADERS, timeout=30.0)
+        response = requests.get(self.WIKI_URL, impersonate="chrome", timeout=30.0)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")

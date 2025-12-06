@@ -5,7 +5,7 @@ description = "Telegram Bot to query which US stock indices a ticker belongs to"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "httpx>=0.28.0",
+    "curl_cffi>=0.7.0",
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
     "pandas>=2.2.0",

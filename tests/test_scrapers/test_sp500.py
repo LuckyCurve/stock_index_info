@@ -31,7 +31,7 @@ class TestSP500Scraper:
         assert scraper.index_code == "sp500"
         assert scraper.index_name == "S&P 500"
 
-    @patch("stock_index_info.scrapers.sp500.httpx.get")
+    @patch("stock_index_info.scrapers.sp500.requests.get")
     def test_fetch_current_constituents(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.text = f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"
@@ -51,7 +51,7 @@ class TestSP500Scraper:
         assert aapl.added_date == date(1982, 11, 30)
         assert aapl.index_code == "sp500"
 
-    @patch("stock_index_info.scrapers.sp500.httpx.get")
+    @patch("stock_index_info.scrapers.sp500.requests.get")
     def test_fetch_parses_changes(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.text = f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"

@@ -29,7 +29,7 @@ class TestNASDAQ100Scraper:
         assert scraper.index_code == "nasdaq100"
         assert scraper.index_name == "NASDAQ 100"
 
-    @patch("stock_index_info.scrapers.nasdaq100.httpx.get")
+    @patch("stock_index_info.scrapers.nasdaq100.requests.get")
     def test_fetch_finds_current_constituents(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.text = f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"
@@ -43,7 +43,7 @@ class TestNASDAQ100Scraper:
         assert "AAPL" in tickers
         assert "GOOGL" in tickers
 
-    @patch("stock_index_info.scrapers.nasdaq100.httpx.get")
+    @patch("stock_index_info.scrapers.nasdaq100.requests.get")
     def test_fetch_parses_changes(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.text = f"<html><body>{SAMPLE_CURRENT_TABLE_HTML}{SAMPLE_CHANGES_TABLE_HTML}</body></html>"
