@@ -1,0 +1,127 @@
+# Stock Index Info Telegram Bot
+
+A Telegram Bot to query which US stock indices (S&P 500, NASDAQ 100) a stock belongs to.
+
+## Setup
+
+### 1. Create a Telegram Bot
+
+1. Talk to [@BotFather](https://t.me/BotFather) on Telegram
+2. Create a new bot with `/newbot`
+3. Copy the bot token
+
+### 2. Get Your Telegram User ID
+
+1. Talk to [@userinfobot](https://t.me/userinfobot) on Telegram
+2. Copy your user ID
+
+### 3. Install Dependencies
+
+```bash
+uv sync
+```
+
+### 4. Run the Bot
+
+```bash
+TELEGRAM_BOT_TOKEN=your_bot_token ALLOWED_USER_IDS=your_user_id uv run stock-index-bot
+```
+
+For multiple allowed users, separate IDs with commas:
+```bash
+ALLOWED_USER_IDS=123456789,987654321
+```
+
+## Bot Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Welcome message and command list |
+| `/help` | Show help message |
+| `/query <TICKER>` | Query which indices a stock belongs to |
+| `/constituents <INDEX>` | List current constituents (sp500 or nasdaq100) |
+| `/sync` | Sync data from Wikipedia manually |
+| `/status` | Show bot status and next sync time |
+
+## Auto-Sync
+
+The bot automatically syncs data from Wikipedia daily at 2:00 AM (configurable via `SYNC_HOUR` and `SYNC_MINUTE` env vars).
+
+You can also send a ticker symbol directly (e.g., `AAPL`) without any command.
+
+## Example Output
+
+```
+AAPL
+
+Index Membership:
+Index        Added        Removed      Years
+--------------------------------------------
+S&P 500      1982-11-30   -            43.0
+NASDAQ 100   1985-01-31   -            40.0
+```
+
+## Development
+
+```bash
+# Run tests
+uv run pytest -v
+
+# Type check
+uv run mypy src/
+
+# Lint
+uv run ruff check src/ tests/
+```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | Yes | Bot token from BotFather |
+| `ALLOWED_USER_IDS` | Yes | Comma-separated Telegram user IDs |
+| `SYNC_HOUR` | No | Hour for daily sync (0-23, default: 2) |
+| `SYNC_MINUTE` | No | Minute for daily sync (0-59, default: 0) |
+
+## Running in Background
+
+### Using nohup
+```bash
+nohup uv run stock-index-bot > bot.log 2>&1 &
+```
+
+### Using screen
+```bash
+screen -S stock-bot
+uv run stock-index-bot
+# Press Ctrl+A, then D to detach
+```
+
+### Using systemd (recommended for production)
+
+Create `/etc/systemd/system/stock-index-bot.service`:
+```ini
+[Unit]
+Description=Stock Index Info Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=your_user
+WorkingDirectory=/path/to/stock_index_info
+Environment=TELEGRAM_BOT_TOKEN=your_token
+Environment=ALLOWED_USER_IDS=your_user_id
+ExecStart=/path/to/.local/bin/uv run stock-index-bot
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable stock-index-bot
+sudo systemctl start stock-index-bot
+```
