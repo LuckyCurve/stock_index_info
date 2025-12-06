@@ -61,6 +61,22 @@ S&P 500      1982-11-30   -            43.0
 NASDAQ 100   1985-01-31   -            40.0
 ```
 
+## CSV Data
+
+The CSV files in `data/` are updated periodically and can be used directly:
+
+| File | Description |
+|------|-------------|
+| `data/sp500.csv` | S&P 500 constituents |
+| `data/nasdaq100.csv` | NASDAQ 100 constituents |
+
+CSV fields: `ticker`, `company_name`, `added_date`, `removed_date`
+
+To manually update the CSV files:
+```bash
+uv run python scripts/export_csv.py
+```
+
 ## Development
 
 ```bash
