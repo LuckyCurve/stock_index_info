@@ -9,5 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-# Data files
-data/
+# Data files (keep CSV files for GitHub Action export)
+data/*.db
+data/*.sqlite
