@@ -31,7 +31,7 @@ from stock_index_info.db import (
 )
 from stock_index_info.scrapers.sp500 import SP500Scraper
 from stock_index_info.scrapers.nasdaq100 import NASDAQ100Scraper
-from stock_index_info.sec_edgar import get_latest_10q
+from stock_index_info.sec_edgar import get_recent_filings
 
 # Configure logging
 logging.basicConfig(
@@ -250,14 +250,22 @@ async def _query_ticker(update: Update, ticker: str) -> None:
         else:
             lines.append("Not found in any tracked index.")
 
-        # Fetch SEC 10-Q report
-        lines.append("")
-        sec_filing = get_latest_10q(ticker)
-        if sec_filing:
-            lines.append(f"Latest 10-Q ({sec_filing.filing_date}):")
-            lines.append(sec_filing.filing_url)
-        else:
-            lines.append("10-Q Report: Not found")
+        # Fetch SEC filings (silent skip if not found)
+        filings = get_recent_filings(ticker)
+        if filings and (filings.quarterly or filings.annual):
+            lines.append("")
+            lines.append("SEC Filings:")
+
+            # Show quarterly reports (10-Q)
+            if filings.quarterly:
+                lines.append("Quarterly (10-Q):")
+                for q in filings.quarterly:
+                    lines.append(f"  {q.filing_date}: {q.filing_url}")
+
+            # Show annual report (10-K)
+            if filings.annual:
+                lines.append("Annual (10-K):")
+                lines.append(f"  {filings.annual.filing_date}: {filings.annual.filing_url}")
 
         await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
     except Exception as e:
