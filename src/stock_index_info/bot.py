@@ -31,6 +31,7 @@ from stock_index_info.db import (
 )
 from stock_index_info.scrapers.sp500 import SP500Scraper
 from stock_index_info.scrapers.nasdaq100 import NASDAQ100Scraper
+from stock_index_info.sec_edgar import get_latest_10q
 
 # Configure logging
 logging.basicConfig(
@@ -228,22 +229,35 @@ async def _query_ticker(update: Update, ticker: str) -> None:
     try:
         memberships = get_stock_memberships(conn, ticker)
 
-        if not memberships:
-            await update.message.reply_text(f"{ticker} not found in any tracked index.")
-            return
-
         # Build response
-        lines: list[str] = [f"*{ticker}*", "", "Index Membership:", "```"]
-        lines.append(f"{'Index':<12} {'Added':<12} {'Removed':<12} {'Years':>6}")
-        lines.append("-" * 44)
+        lines: list[str] = [f"*{ticker}*", ""]
 
-        for m in memberships:
-            added_str = m.added_date.isoformat() if m.added_date else "?"
-            removed_str = m.removed_date.isoformat() if m.removed_date else "-"
-            years_str = f"{m.years_in_index:>6.1f}" if m.years_in_index is not None else "     ?"
-            lines.append(f"{m.index_name:<12} {added_str:<12} {removed_str:<12} {years_str}")
+        if memberships:
+            lines.append("Index Membership:")
+            lines.append("```")
+            lines.append(f"{'Index':<12} {'Added':<12} {'Removed':<12} {'Years':>6}")
+            lines.append("-" * 44)
 
-        lines.append("```")
+            for m in memberships:
+                added_str = m.added_date.isoformat() if m.added_date else "?"
+                removed_str = m.removed_date.isoformat() if m.removed_date else "-"
+                years_str = (
+                    f"{m.years_in_index:>6.1f}" if m.years_in_index is not None else "     ?"
+                )
+                lines.append(f"{m.index_name:<12} {added_str:<12} {removed_str:<12} {years_str}")
+
+            lines.append("```")
+        else:
+            lines.append("Not found in any tracked index.")
+
+        # Fetch SEC 10-Q report
+        lines.append("")
+        sec_filing = get_latest_10q(ticker)
+        if sec_filing:
+            lines.append(f"Latest 10-Q ({sec_filing.filing_date}):")
+            lines.append(sec_filing.filing_url)
+        else:
+            lines.append("10-Q Report: Not found")
 
         await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
     except Exception as e:
