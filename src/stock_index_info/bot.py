@@ -283,6 +283,10 @@ async def _query_ticker(update: Update, ticker: str) -> None:
                 lines.append("Annual (10-K):")
                 lines.append(f"  {filings.annual.filing_date}: {filings.annual.filing_url}")
 
+        # Reuters Valuation link
+        lines.append("")
+        lines.append(_build_reuters_valuation_links(ticker))
+
         await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Error querying ticker {ticker}: {e}")
