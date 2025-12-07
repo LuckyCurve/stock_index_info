@@ -54,11 +54,19 @@ src/stock_index_info/
 ├── bot.py           # Telegram Bot 主入口和命令处理
 ├── config.py        # 环境变量和配置管理
 ├── db.py            # SQLite 数据库操作
-├── models.py        # 数据模型 (ConstituentRecord, IndexMembership)
+├── models.py        # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings)
+├── sec_edgar.py     # SEC EDGAR API 客户端，获取 10-Q/10-K 报告链接
 └── scrapers/        # 数据抓取模块
     ├── base.py      # BaseScraper 抽象基类
     ├── sp500.py     # S&P 500 Wikipedia 抓取器
     └── nasdaq100.py # NASDAQ 100 Wikipedia 抓取器
+
+scripts/
+└── export_csv.py    # 导出成分股数据到 CSV 文件
+
+data/
+├── sp500.csv        # S&P 500 成分股 CSV 数据
+└── nasdaq100.csv    # NASDAQ 100 成分股 CSV 数据
 ```
 
 ### 核心模块说明
@@ -66,7 +74,8 @@ src/stock_index_info/
 - **bot.py**: 使用 python-telegram-bot 库，包含命令处理器 (`/query`, `/sync`, `/status` 等)、定时同步任务、和 `@restricted` 装饰器用于用户权限控制
 - **scrapers/**: 继承 `BaseScraper` 抽象基类，使用 `curl_cffi` 抓取 Wikipedia 页面，`pandas` 解析 HTML 表格
 - **db.py**: SQLite 数据库操作，constituents 表存储股票指数成分股历史记录
-- **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示
+- **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示，`SECFilingRecord` 和 `RecentFilings` 用于 SEC 报告查询结果
+- **sec_edgar.py**: SEC EDGAR API 客户端，提供 `get_cik_from_ticker()`、`get_latest_10q()` 和 `get_recent_filings()` 函数，用于获取公司的季报(10-Q)和年报(10-K)链接
 
 ### 数据库 Schema
 
@@ -104,6 +113,15 @@ CREATE TABLE constituents (
 ### 测试
 
 测试使用 pytest-asyncio (异步测试) 和 pytest fixtures (`temp_db`, `db_connection`)。conftest.py 定义了共享 fixtures。
+
+## 脚本工具
+
+```bash
+# 导出 S&P 500 和 NASDAQ 100 成分股数据到 CSV
+uv run python scripts/export_csv.py
+```
+
+导出的 CSV 文件保存在 `data/` 目录，字段: `ticker`, `company_name`, `added_date`, `removed_date`
 
 ## 环境变量
 

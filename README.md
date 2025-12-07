@@ -59,7 +59,16 @@ Index        Added        Removed      Years
 --------------------------------------------
 S&P 500      1982-11-30   -            43.0
 NASDAQ 100   1985-01-31   -            40.0
+
+SEC Filings:
+Quarterly (10-Q):
+  2024-08-02: https://www.sec.gov/Archives/edgar/data/...
+  2024-05-03: https://www.sec.gov/Archives/edgar/data/...
+Annual (10-K):
+  2023-11-03: https://www.sec.gov/Archives/edgar/data/...
 ```
+
+The `/query` command also fetches recent SEC filings (up to 4 quarterly 10-Q reports and the latest annual 10-K report) from SEC EDGAR.
 
 ## CSV Data
 
