@@ -59,3 +59,11 @@ class SECFilingRecord:
     form_type: str
     filing_date: str
     filing_url: str
+
+
+@dataclass
+class RecentFilings:
+    """Recent SEC filings for a stock."""
+
+    quarterly: list[SECFilingRecord]  # Up to 4 10-Q filings, descending by date
+    annual: Optional[SECFilingRecord]  # Latest 10-K filing, or None

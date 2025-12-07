@@ -70,3 +70,44 @@ class TestSECFilingRecord:
         assert record.form_type == "10-Q"
         assert record.filing_date == "2024-11-01"
         assert record.filing_url.startswith("https://www.sec.gov")
+
+
+class TestRecentFilings:
+    def test_recent_filings_creation(self) -> None:
+        """Test RecentFilings dataclass creation."""
+        from stock_index_info.models import RecentFilings, SECFilingRecord
+
+        quarterly = [
+            SECFilingRecord(
+                ticker="AAPL",
+                form_type="10-Q",
+                filing_date="2024-11-01",
+                filing_url="https://www.sec.gov/example1",
+            ),
+            SECFilingRecord(
+                ticker="AAPL",
+                form_type="10-Q",
+                filing_date="2024-08-02",
+                filing_url="https://www.sec.gov/example2",
+            ),
+        ]
+        annual = SECFilingRecord(
+            ticker="AAPL",
+            form_type="10-K",
+            filing_date="2024-10-31",
+            filing_url="https://www.sec.gov/example3",
+        )
+
+        filings = RecentFilings(quarterly=quarterly, annual=annual)
+        assert len(filings.quarterly) == 2
+        assert filings.quarterly[0].form_type == "10-Q"
+        assert filings.annual is not None
+        assert filings.annual.form_type == "10-K"
+
+    def test_recent_filings_no_annual(self) -> None:
+        """Test RecentFilings with no annual report."""
+        from stock_index_info.models import RecentFilings
+
+        filings = RecentFilings(quarterly=[], annual=None)
+        assert len(filings.quarterly) == 0
+        assert filings.annual is None
