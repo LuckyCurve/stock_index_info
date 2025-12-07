@@ -211,6 +211,22 @@ async def ticker_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
 
+def _build_reuters_valuation_links(ticker: str) -> str:
+    """Build Reuters valuation links for a ticker.
+
+    Returns Markdown formatted links for NASDAQ (.O), NYSE (.N), and no-suffix variants.
+    User can click each to find the working one.
+    """
+    base_url = "https://www.reuters.com/markets/companies"
+    ticker_upper = ticker.upper()
+    return (
+        f"Reuters Valuation: "
+        f"[{ticker_upper}.O]({base_url}/{ticker_upper}.O/key-metrics/valuation) | "
+        f"[{ticker_upper}.N]({base_url}/{ticker_upper}.N/key-metrics/valuation) | "
+        f"[{ticker_upper}]({base_url}/{ticker_upper}/key-metrics/valuation)"
+    )
+
+
 async def _query_ticker(update: Update, ticker: str) -> None:
     """Query and respond with ticker information."""
     if not update.message:
