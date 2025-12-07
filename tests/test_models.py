@@ -53,3 +53,20 @@ class TestIndexMembership:
         )
         assert membership.years_in_index == pytest.approx(10.0, abs=0.1)
         assert membership.is_current is False
+
+
+class TestSECFilingRecord:
+    def test_sec_filing_record_creation(self) -> None:
+        """Test SECFilingRecord dataclass creation."""
+        from stock_index_info.models import SECFilingRecord
+
+        record = SECFilingRecord(
+            ticker="AAPL",
+            form_type="10-Q",
+            filing_date="2024-11-01",
+            filing_url="https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm",
+        )
+        assert record.ticker == "AAPL"
+        assert record.form_type == "10-Q"
+        assert record.filing_date == "2024-11-01"
+        assert record.filing_url.startswith("https://www.sec.gov")

@@ -49,3 +49,13 @@ class IndexMembership:
         end_date = self.removed_date or date.today()
         delta = end_date - self.added_date
         return delta.days / 365.25
+
+
+@dataclass
+class SECFilingRecord:
+    """A record of SEC filing for a stock."""
+
+    ticker: str
+    form_type: str
+    filing_date: str
+    filing_url: str
