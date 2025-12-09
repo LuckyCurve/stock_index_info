@@ -113,33 +113,33 @@ class TestRecentFilings:
         assert filings.annual is None
 
 
-def test_earnings_record_creation():
-    """Test creating an EarningsRecord."""
-    from stock_index_info.models import EarningsRecord
+def test_income_record_creation():
+    """Test creating an IncomeRecord."""
+    from stock_index_info.models import IncomeRecord
 
-    record = EarningsRecord(
+    record = IncomeRecord(
         ticker="AAPL",
         fiscal_year=2024,
-        eps=6.42,
+        net_income=96995000000,
     )
     assert record.ticker == "AAPL"
     assert record.fiscal_year == 2024
-    assert record.eps == 6.42
+    assert record.net_income == 96995000000
 
 
-def test_cached_earnings_creation():
-    """Test creating a CachedEarnings with multiple years."""
-    from stock_index_info.models import CachedEarnings, EarningsRecord
+def test_cached_income_creation():
+    """Test creating a CachedIncome with multiple years."""
+    from stock_index_info.models import CachedIncome, IncomeRecord
 
     records = [
-        EarningsRecord(ticker="AAPL", fiscal_year=2024, eps=6.42),
-        EarningsRecord(ticker="AAPL", fiscal_year=2023, eps=6.16),
+        IncomeRecord(ticker="AAPL", fiscal_year=2024, net_income=96995000000),
+        IncomeRecord(ticker="AAPL", fiscal_year=2023, net_income=96995000000),
     ]
-    cached = CachedEarnings(
+    cached = CachedIncome(
         ticker="AAPL",
         last_updated="2025-01-15",
-        annual_eps=records,
+        annual_income=records,
     )
     assert cached.ticker == "AAPL"
-    assert len(cached.annual_eps) == 2
+    assert len(cached.annual_income) == 2
     assert cached.last_updated == "2025-01-15"

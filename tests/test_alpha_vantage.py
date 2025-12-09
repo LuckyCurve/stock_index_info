@@ -3,86 +3,89 @@
 import pytest
 
 
-def test_fetch_annual_eps_valid_ticker():
-    """Test fetching annual EPS for a valid ticker."""
+def test_fetch_annual_net_income_valid_ticker():
+    """Test fetching annual net income for a valid ticker."""
     from stock_index_info.config import ALPHA_VANTAGE_API_KEY
-    from stock_index_info.alpha_vantage import fetch_annual_eps
+    from stock_index_info.alpha_vantage import fetch_annual_net_income
 
     if not ALPHA_VANTAGE_API_KEY:
         pytest.skip("ALPHA_VANTAGE_API_KEY not set")
 
-    records = fetch_annual_eps("IBM")
+    records = fetch_annual_net_income("IBM")
 
     assert records is not None
     assert len(records) >= 7  # Should have at least 7 years
     assert all(r.ticker == "IBM" for r in records)
     assert all(r.fiscal_year >= 2000 for r in records)
+    # Net income should be in dollars (large numbers)
+    assert all(abs(r.net_income) > 1_000_000 for r in records)
     # Should be sorted by year descending
     years = [r.fiscal_year for r in records]
     assert years == sorted(years, reverse=True)
 
 
-def test_fetch_annual_eps_invalid_ticker():
-    """Test fetching EPS for invalid ticker returns None."""
+def test_fetch_annual_net_income_invalid_ticker():
+    """Test fetching net income for invalid ticker returns None."""
     from stock_index_info.config import ALPHA_VANTAGE_API_KEY
-    from stock_index_info.alpha_vantage import fetch_annual_eps
+    from stock_index_info.alpha_vantage import fetch_annual_net_income
 
     if not ALPHA_VANTAGE_API_KEY:
         pytest.skip("ALPHA_VANTAGE_API_KEY not set")
 
-    records = fetch_annual_eps("INVALIDTICKER12345")
+    records = fetch_annual_net_income("INVALIDTICKER12345")
     assert records is None
 
 
-def test_fetch_annual_eps_no_api_key(monkeypatch):
+def test_fetch_annual_net_income_no_api_key(monkeypatch):
     """Test that fetch returns None when API key not configured."""
-    from stock_index_info import config
-    from stock_index_info.alpha_vantage import fetch_annual_eps
+    from stock_index_info import alpha_vantage
+    from stock_index_info.alpha_vantage import fetch_annual_net_income
 
-    monkeypatch.setattr(config, "ALPHA_VANTAGE_API_KEY", None)
+    monkeypatch.setattr(alpha_vantage, "ALPHA_VANTAGE_API_KEY", None)
 
-    records = fetch_annual_eps("AAPL")
+    records = fetch_annual_net_income("AAPL")
     assert records is None
 
 
-def test_get_current_price_valid_ticker():
-    """Test getting current price for a valid ticker."""
-    from stock_index_info.alpha_vantage import get_current_price
+def test_get_market_cap_valid_ticker():
+    """Test getting market cap for a valid ticker."""
+    from stock_index_info.alpha_vantage import get_market_cap
 
-    price = get_current_price("AAPL")
+    market_cap = get_market_cap("AAPL")
 
     # May return None if rate limited by Yahoo Finance
-    if price is not None:
-        assert price > 0
+    if market_cap is not None:
+        # Apple's market cap should be in trillions
+        assert market_cap > 1_000_000_000_000
 
 
-def test_get_current_price_invalid_ticker():
-    """Test getting price for invalid ticker returns None."""
-    from stock_index_info.alpha_vantage import get_current_price
+def test_get_market_cap_invalid_ticker():
+    """Test getting market cap for invalid ticker returns None."""
+    from stock_index_info.alpha_vantage import get_market_cap
 
-    price = get_current_price("INVALIDTICKER12345")
-    assert price is None
+    market_cap = get_market_cap("INVALIDTICKER12345")
+    assert market_cap is None
 
 
 def test_calculate_7year_avg_pe():
-    """Test calculating 7-year average P/E."""
+    """Test calculating 7-year average P/E using market cap and net income."""
     from stock_index_info.alpha_vantage import calculate_7year_avg_pe
-    from stock_index_info.models import EarningsRecord
+    from stock_index_info.models import IncomeRecord
 
     records = [
-        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=5.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=4.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=3.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2021, eps=4.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2020, eps=5.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2019, eps=6.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2018, eps=8.0),
+        IncomeRecord(ticker="TEST", fiscal_year=2024, net_income=100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2023, net_income=90_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2022, net_income=80_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2021, net_income=100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2020, net_income=110_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2019, net_income=120_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2018, net_income=100_000_000),
     ]
-    # Average EPS = (5+4+3+4+5+6+8) / 7 = 35 / 7 = 5.0
-    # P/E = 100 / 5.0 = 20.0
-    current_price = 100.0
+    # Average net income = 700_000_000 / 7 = 100_000_000
+    # P/E = 2_000_000_000 / 100_000_000 = 20.0
+    market_cap = 2_000_000_000.0
 
-    pe = calculate_7year_avg_pe(records, current_price)
+    pe = calculate_7year_avg_pe(records, market_cap)
 
     assert pe is not None
     assert abs(pe - 20.0) < 0.01
@@ -91,37 +94,60 @@ def test_calculate_7year_avg_pe():
 def test_calculate_7year_avg_pe_insufficient_data():
     """Test that P/E returns None when less than 7 years of data."""
     from stock_index_info.alpha_vantage import calculate_7year_avg_pe
-    from stock_index_info.models import EarningsRecord
+    from stock_index_info.models import IncomeRecord
 
     records = [
-        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=5.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=4.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=3.0),
+        IncomeRecord(ticker="TEST", fiscal_year=2024, net_income=100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2023, net_income=90_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2022, net_income=80_000_000),
     ]
-    current_price = 100.0
+    market_cap = 2_000_000_000.0
 
-    pe = calculate_7year_avg_pe(records, current_price)
+    pe = calculate_7year_avg_pe(records, market_cap)
 
     assert pe is None
 
 
 def test_calculate_7year_avg_pe_negative_average():
-    """Test that P/E returns None when average EPS is negative or zero."""
+    """Test that P/E returns None when average net income is negative or zero."""
     from stock_index_info.alpha_vantage import calculate_7year_avg_pe
-    from stock_index_info.models import EarningsRecord
+    from stock_index_info.models import IncomeRecord
 
     records = [
-        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=-5.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=-4.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=-3.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2021, eps=-4.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2020, eps=-5.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2019, eps=-6.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2018, eps=-8.0),
+        IncomeRecord(ticker="TEST", fiscal_year=2024, net_income=-100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2023, net_income=-90_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2022, net_income=-80_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2021, net_income=-100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2020, net_income=-110_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2019, net_income=-120_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2018, net_income=-100_000_000),
     ]
-    current_price = 100.0
+    market_cap = 2_000_000_000.0
 
-    pe = calculate_7year_avg_pe(records, current_price)
+    pe = calculate_7year_avg_pe(records, market_cap)
+
+    assert pe is None
+
+
+def test_calculate_7year_avg_pe_non_consecutive_years():
+    """Test that P/E returns None when years are not consecutive."""
+    from stock_index_info.alpha_vantage import calculate_7year_avg_pe
+    from stock_index_info.models import IncomeRecord
+
+    # Missing 2021 - years are not consecutive
+    records = [
+        IncomeRecord(ticker="TEST", fiscal_year=2024, net_income=100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2023, net_income=90_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2022, net_income=80_000_000),
+        # 2021 is missing
+        IncomeRecord(ticker="TEST", fiscal_year=2020, net_income=110_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2019, net_income=120_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2018, net_income=100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2017, net_income=90_000_000),
+    ]
+    market_cap = 2_000_000_000.0
+
+    pe = calculate_7year_avg_pe(records, market_cap)
 
     assert pe is None
 
@@ -129,23 +155,24 @@ def test_calculate_7year_avg_pe_negative_average():
 def test_get_7year_pe_with_cache(db_connection):
     """Test getting 7-year P/E uses cache when available."""
     from stock_index_info.alpha_vantage import get_7year_pe
-    from stock_index_info.db import save_earnings
-    from stock_index_info.models import EarningsRecord
+    from stock_index_info.db import save_income
+    from stock_index_info.models import IncomeRecord
 
-    # Pre-populate cache with 7 years of data
+    # Pre-populate cache with 7 consecutive years of data
     records = [
-        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=5.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=4.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=3.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2021, eps=4.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2020, eps=5.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2019, eps=6.0),
-        EarningsRecord(ticker="TEST", fiscal_year=2018, eps=8.0),
+        IncomeRecord(ticker="TEST", fiscal_year=2024, net_income=100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2023, net_income=90_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2022, net_income=80_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2021, net_income=100_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2020, net_income=110_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2019, net_income=120_000_000),
+        IncomeRecord(ticker="TEST", fiscal_year=2018, net_income=100_000_000),
     ]
-    save_earnings(db_connection, "TEST", records, "2025-01-15")
+    save_income(db_connection, "TEST", records, "2025-01-15")
 
-    # Mock current price
-    result = get_7year_pe(db_connection, "TEST", current_price=100.0)
+    # Average net income = 700_000_000 / 7 = 100_000_000
+    # P/E = 2_000_000_000 / 100_000_000 = 20.0
+    result = get_7year_pe(db_connection, "TEST", market_cap=2_000_000_000.0)
 
     assert result is not None
     assert abs(result - 20.0) < 0.01

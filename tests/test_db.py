@@ -68,52 +68,52 @@ class TestConstituents:
         assert set(sp500_current) == {"AAPL", "MSFT"}
 
 
-def test_save_and_get_earnings(db_connection):
-    """Test saving and retrieving earnings data."""
-    from stock_index_info.db import save_earnings, get_cached_earnings
-    from stock_index_info.models import EarningsRecord
+def test_save_and_get_income(db_connection):
+    """Test saving and retrieving income statement data."""
+    from stock_index_info.db import save_income, get_cached_income
+    from stock_index_info.models import IncomeRecord
 
     records = [
-        EarningsRecord(ticker="AAPL", fiscal_year=2024, eps=6.42),
-        EarningsRecord(ticker="AAPL", fiscal_year=2023, eps=6.16),
-        EarningsRecord(ticker="AAPL", fiscal_year=2022, eps=6.11),
+        IncomeRecord(ticker="AAPL", fiscal_year=2024, net_income=96995000000),
+        IncomeRecord(ticker="AAPL", fiscal_year=2023, net_income=96995000000),
+        IncomeRecord(ticker="AAPL", fiscal_year=2022, net_income=99803000000),
     ]
-    save_earnings(db_connection, "AAPL", records, "2025-01-15")
+    save_income(db_connection, "AAPL", records, "2025-01-15")
 
-    cached = get_cached_earnings(db_connection, "AAPL")
+    cached = get_cached_income(db_connection, "AAPL")
     assert cached is not None
     assert cached.ticker == "AAPL"
     assert cached.last_updated == "2025-01-15"
-    assert len(cached.annual_eps) == 3
-    assert cached.annual_eps[0].fiscal_year == 2024
-    assert cached.annual_eps[0].eps == 6.42
+    assert len(cached.annual_income) == 3
+    assert cached.annual_income[0].fiscal_year == 2024
+    assert cached.annual_income[0].net_income == 96995000000
 
 
-def test_get_cached_earnings_not_found(db_connection):
-    """Test getting earnings for non-existent ticker returns None."""
-    from stock_index_info.db import get_cached_earnings
+def test_get_cached_income_not_found(db_connection):
+    """Test getting income for non-existent ticker returns None."""
+    from stock_index_info.db import get_cached_income
 
-    cached = get_cached_earnings(db_connection, "NOTFOUND")
+    cached = get_cached_income(db_connection, "NOTFOUND")
     assert cached is None
 
 
-def test_save_earnings_replaces_old_data(db_connection):
-    """Test that saving earnings replaces existing data for ticker."""
-    from stock_index_info.db import save_earnings, get_cached_earnings
-    from stock_index_info.models import EarningsRecord
+def test_save_income_replaces_old_data(db_connection):
+    """Test that saving income replaces existing data for ticker."""
+    from stock_index_info.db import save_income, get_cached_income
+    from stock_index_info.models import IncomeRecord
 
     # Save initial data
-    old_records = [EarningsRecord(ticker="AAPL", fiscal_year=2023, eps=6.16)]
-    save_earnings(db_connection, "AAPL", old_records, "2024-01-01")
+    old_records = [IncomeRecord(ticker="AAPL", fiscal_year=2023, net_income=96995000000)]
+    save_income(db_connection, "AAPL", old_records, "2024-01-01")
 
     # Save new data
     new_records = [
-        EarningsRecord(ticker="AAPL", fiscal_year=2024, eps=6.42),
-        EarningsRecord(ticker="AAPL", fiscal_year=2023, eps=6.16),
+        IncomeRecord(ticker="AAPL", fiscal_year=2024, net_income=96995000000),
+        IncomeRecord(ticker="AAPL", fiscal_year=2023, net_income=96995000000),
     ]
-    save_earnings(db_connection, "AAPL", new_records, "2025-01-15")
+    save_income(db_connection, "AAPL", new_records, "2025-01-15")
 
-    cached = get_cached_earnings(db_connection, "AAPL")
+    cached = get_cached_income(db_connection, "AAPL")
     assert cached is not None
     assert cached.last_updated == "2025-01-15"
-    assert len(cached.annual_eps) == 2
+    assert len(cached.annual_income) == 2
