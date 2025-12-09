@@ -1,5 +1,6 @@
 """Alpha Vantage API client for fetching income statement data."""
 
+import logging
 import sqlite3
 from datetime import date
 from typing import Optional
@@ -10,6 +11,8 @@ import yfinance as yf
 from stock_index_info.config import ALPHA_VANTAGE_API_KEY
 from stock_index_info.db import get_cached_income, save_income
 from stock_index_info.models import IncomeRecord
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
@@ -81,7 +84,9 @@ def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
 
 
 def get_market_cap(ticker: str) -> Optional[float]:
-    """Get current market capitalization using yfinance.
+    """Get current market capitalization.
+
+    Tries yfinance first, falls back to Alpha Vantage OVERVIEW endpoint.
 
     Args:
         ticker: Stock ticker symbol (e.g., "AAPL")
@@ -89,16 +94,47 @@ def get_market_cap(ticker: str) -> Optional[float]:
     Returns:
         Market cap in dollars as float, or None if not found.
     """
+    ticker_upper = ticker.upper()
+
+    # Try yfinance first
     try:
-        stock = yf.Ticker(ticker.upper())
-        # Try to get market cap from info
+        stock = yf.Ticker(ticker_upper)
         info = stock.info
         if info and "marketCap" in info:
             market_cap = info["marketCap"]
             if market_cap is not None:
+                logger.debug(f"Got market cap for {ticker_upper} from yfinance: {market_cap}")
                 return float(market_cap)
+    except Exception as e:
+        logger.warning(f"yfinance failed for {ticker_upper}: {type(e).__name__}: {e}")
+
+    # Fallback to Alpha Vantage OVERVIEW endpoint
+    if not ALPHA_VANTAGE_API_KEY:
+        logger.warning(f"Cannot get market cap for {ticker_upper}: yfinance failed and no API key")
         return None
-    except Exception:
+
+    try:
+        url = "https://www.alphavantage.co/query"
+        params = {
+            "function": "OVERVIEW",
+            "symbol": ticker_upper,
+            "apikey": ALPHA_VANTAGE_API_KEY,
+        }
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
+        if "MarketCapitalization" in data:
+            market_cap_str = data["MarketCapitalization"]
+            if market_cap_str and market_cap_str != "None":
+                market_cap = float(market_cap_str)
+                logger.debug(f"Got market cap for {ticker_upper} from Alpha Vantage: {market_cap}")
+                return market_cap
+
+        logger.warning(f"Alpha Vantage OVERVIEW has no MarketCapitalization for {ticker_upper}")
+        return None
+    except Exception as e:
+        logger.warning(f"Alpha Vantage OVERVIEW failed for {ticker_upper}: {type(e).__name__}: {e}")
         return None
 
 
