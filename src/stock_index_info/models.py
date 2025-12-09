@@ -67,3 +67,21 @@ class RecentFilings:
 
     quarterly: list[SECFilingRecord]  # Up to 4 10-Q filings, descending by date
     annual: Optional[SECFilingRecord]  # Latest 10-K filing, or None
+
+
+@dataclass
+class EarningsRecord:
+    """Annual EPS record for a stock."""
+
+    ticker: str
+    fiscal_year: int
+    eps: float
+
+
+@dataclass
+class CachedEarnings:
+    """Cached earnings data for a stock."""
+
+    ticker: str
+    last_updated: str  # ISO format date
+    annual_eps: list[EarningsRecord]

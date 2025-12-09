@@ -111,3 +111,35 @@ class TestRecentFilings:
         filings = RecentFilings(quarterly=[], annual=None)
         assert len(filings.quarterly) == 0
         assert filings.annual is None
+
+
+def test_earnings_record_creation():
+    """Test creating an EarningsRecord."""
+    from stock_index_info.models import EarningsRecord
+
+    record = EarningsRecord(
+        ticker="AAPL",
+        fiscal_year=2024,
+        eps=6.42,
+    )
+    assert record.ticker == "AAPL"
+    assert record.fiscal_year == 2024
+    assert record.eps == 6.42
+
+
+def test_cached_earnings_creation():
+    """Test creating a CachedEarnings with multiple years."""
+    from stock_index_info.models import CachedEarnings, EarningsRecord
+
+    records = [
+        EarningsRecord(ticker="AAPL", fiscal_year=2024, eps=6.42),
+        EarningsRecord(ticker="AAPL", fiscal_year=2023, eps=6.16),
+    ]
+    cached = CachedEarnings(
+        ticker="AAPL",
+        last_updated="2025-01-15",
+        annual_eps=records,
+    )
+    assert cached.ticker == "AAPL"
+    assert len(cached.annual_eps) == 2
+    assert cached.last_updated == "2025-01-15"
