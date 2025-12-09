@@ -1,11 +1,14 @@
 """Alpha Vantage API client for fetching earnings data."""
 
+import sqlite3
+from datetime import date
 from typing import Optional
 
 from curl_cffi import requests
 import yfinance as yf
 
 from stock_index_info.config import ALPHA_VANTAGE_API_KEY
+from stock_index_info.db import get_cached_earnings, save_earnings
 from stock_index_info.models import EarningsRecord
 
 
@@ -125,3 +128,57 @@ def calculate_7year_avg_pe(
         return None
 
     return current_price / avg_eps
+
+
+def get_7year_pe(
+    conn: sqlite3.Connection,
+    ticker: str,
+    current_price: Optional[float] = None,
+    latest_filing_date: Optional[str] = None,
+) -> Optional[float]:
+    """Get 7-year average P/E ratio for a ticker.
+
+    Uses cached EPS data if available and not stale. Fetches from Alpha Vantage
+    if cache is empty or if latest_filing_date is newer than cache.
+
+    Args:
+        conn: Database connection
+        ticker: Stock ticker symbol
+        current_price: Current stock price (fetched via yfinance if not provided)
+        latest_filing_date: Latest SEC filing date (ISO format). If newer than
+                           cache last_updated, triggers cache refresh.
+
+    Returns:
+        7-year average P/E ratio, or None if insufficient data.
+    """
+    ticker_upper = ticker.upper()
+
+    # Get cached data
+    cached = get_cached_earnings(conn, ticker_upper)
+
+    # Determine if we need to refresh cache
+    need_refresh = False
+    if cached is None:
+        need_refresh = True
+    elif latest_filing_date and latest_filing_date > cached.last_updated:
+        need_refresh = True
+
+    # Refresh cache if needed
+    if need_refresh:
+        new_records = fetch_annual_eps(ticker_upper)
+        if new_records:
+            today = date.today().isoformat()
+            save_earnings(conn, ticker_upper, new_records, today)
+            cached = get_cached_earnings(conn, ticker_upper)
+
+    # Check if we have enough data
+    if cached is None or len(cached.annual_eps) < 7:
+        return None
+
+    # Get current price if not provided
+    if current_price is None:
+        current_price = get_current_price(ticker_upper)
+        if current_price is None:
+            return None
+
+    return calculate_7year_avg_pe(cached.annual_eps, current_price)

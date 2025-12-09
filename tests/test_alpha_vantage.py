@@ -124,3 +124,28 @@ def test_calculate_7year_avg_pe_negative_average():
     pe = calculate_7year_avg_pe(records, current_price)
 
     assert pe is None
+
+
+def test_get_7year_pe_with_cache(db_connection):
+    """Test getting 7-year P/E uses cache when available."""
+    from stock_index_info.alpha_vantage import get_7year_pe
+    from stock_index_info.db import save_earnings
+    from stock_index_info.models import EarningsRecord
+
+    # Pre-populate cache with 7 years of data
+    records = [
+        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=5.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=4.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=3.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2021, eps=4.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2020, eps=5.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2019, eps=6.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2018, eps=8.0),
+    ]
+    save_earnings(db_connection, "TEST", records, "2025-01-15")
+
+    # Mock current price
+    result = get_7year_pe(db_connection, "TEST", current_price=100.0)
+
+    assert result is not None
+    assert abs(result - 20.0) < 0.01
