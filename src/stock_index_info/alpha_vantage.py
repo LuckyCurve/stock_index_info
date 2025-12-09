@@ -3,6 +3,7 @@
 from typing import Optional
 
 from curl_cffi import requests
+import yfinance as yf
 
 from stock_index_info.config import ALPHA_VANTAGE_API_KEY
 from stock_index_info.models import EarningsRecord
@@ -68,5 +69,33 @@ def fetch_annual_eps(ticker: str) -> Optional[list[EarningsRecord]]:
         records.sort(key=lambda r: r.fiscal_year, reverse=True)
         return records
 
+    except Exception:
+        return None
+
+
+def get_current_price(ticker: str) -> Optional[float]:
+    """Get current stock price using yfinance.
+
+    Args:
+        ticker: Stock ticker symbol (e.g., "AAPL")
+
+    Returns:
+        Current price as float, or None if not found.
+    """
+    try:
+        stock = yf.Ticker(ticker.upper())
+        # Try to get price from history (more reliable)
+        hist = stock.history(period="1d")
+        if not hist.empty and "Close" in hist.columns:
+            price = hist["Close"].iloc[-1]
+            return float(price) if price else None
+        # Fall back to fast_info
+        try:
+            price = stock.fast_info.last_price
+            if price is not None:
+                return float(price)
+        except Exception:
+            pass
+        return None
     except Exception:
         return None

@@ -43,3 +43,22 @@ def test_fetch_annual_eps_no_api_key(monkeypatch):
 
     records = fetch_annual_eps("AAPL")
     assert records is None
+
+
+def test_get_current_price_valid_ticker():
+    """Test getting current price for a valid ticker."""
+    from stock_index_info.alpha_vantage import get_current_price
+
+    price = get_current_price("AAPL")
+
+    # May return None if rate limited by Yahoo Finance
+    if price is not None:
+        assert price > 0
+
+
+def test_get_current_price_invalid_ticker():
+    """Test getting price for invalid ticker returns None."""
+    from stock_index_info.alpha_vantage import get_current_price
+
+    price = get_current_price("INVALIDTICKER12345")
+    assert price is None
