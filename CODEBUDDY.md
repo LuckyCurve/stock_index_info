@@ -51,10 +51,11 @@ uv run mypy src/
 
 ```
 src/stock_index_info/
+├── alpha_vantage.py # Alpha Vantage API 客户端，获取历史年度 EPS 数据；使用 yfinance 获取当前股价；计算7年平均市盈率
 ├── bot.py           # Telegram Bot 主入口和命令处理
 ├── config.py        # 环境变量和配置管理
 ├── db.py            # SQLite 数据库操作
-├── models.py        # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings)
+├── models.py        # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings, EarningsRecord, CachedEarnings)
 ├── sec_edgar.py     # SEC EDGAR API 客户端，获取 10-Q/10-K 报告链接
 └── scrapers/        # 数据抓取模块
     ├── base.py      # BaseScraper 抽象基类
@@ -76,6 +77,7 @@ data/
 - **db.py**: SQLite 数据库操作，constituents 表存储股票指数成分股历史记录
 - **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示，`SECFilingRecord` 和 `RecentFilings` 用于 SEC 报告查询结果
 - **sec_edgar.py**: SEC EDGAR API 客户端，提供 `get_cik_from_ticker()`、`get_latest_10q()` 和 `get_recent_filings()` 函数，用于获取公司的季报(10-Q)和年报(10-K)链接
+- **alpha_vantage.py**: Alpha Vantage API 客户端，获取历史年度 EPS 数据；使用 yfinance 获取当前股价；计算7年平均市盈率
 
 ### 数据库 Schema
 
@@ -88,6 +90,15 @@ CREATE TABLE constituents (
     removed_date TEXT,
     reason TEXT,
     UNIQUE(ticker, index_code, added_date)
+);
+
+CREATE TABLE earnings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    fiscal_year INTEGER NOT NULL,
+    eps REAL NOT NULL,
+    last_updated TEXT NOT NULL,
+    UNIQUE(ticker, fiscal_year)
 );
 ```
 
@@ -131,3 +142,4 @@ uv run python scripts/export_csv.py
 | `ALLOWED_USER_IDS` | 是 | 允许使用的 Telegram 用户 ID (逗号分隔) |
 | `SYNC_HOUR` | 否 | 每日同步时间 (0-23, 默认 2) |
 | `SYNC_MINUTE` | 否 | 每日同步分钟 (0-59, 默认 0) |
+| `ALPHA_VANTAGE_API_KEY` | 否 | Alpha Vantage API key (7年平均P/E功能需要) |
