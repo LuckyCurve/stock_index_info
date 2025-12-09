@@ -54,6 +54,8 @@ You can also send a ticker symbol directly (e.g., `AAPL`) without any command.
 ```
 AAPL
 
+P/E (7Y Avg): 28.5
+
 Index Membership:
 Index        Added        Removed      Years
 --------------------------------------------
@@ -68,7 +70,10 @@ Annual (10-K):
   2023-11-03: https://www.sec.gov/Archives/edgar/data/...
 ```
 
-The `/query` command also fetches recent SEC filings (up to 4 quarterly 10-Q reports and the latest annual 10-K report) from SEC EDGAR.
+The `/query` command displays:
+- **7-Year Average P/E Ratio** - Calculated using historical EPS from Alpha Vantage and current price from Yahoo Finance (requires `ALPHA_VANTAGE_API_KEY`)
+- **Index Membership** - S&P 500 and NASDAQ 100 membership history
+- **SEC Filings** - Up to 4 quarterly 10-Q reports and the latest annual 10-K report from SEC EDGAR
 
 ## CSV Data
 
@@ -107,6 +112,7 @@ uv run ruff check src/ tests/
 | `ALLOWED_USER_IDS` | Yes | Comma-separated Telegram user IDs |
 | `SYNC_HOUR` | No | Hour for daily sync (0-23, default: 2) |
 | `SYNC_MINUTE` | No | Minute for daily sync (0-59, default: 0) |
+| `ALPHA_VANTAGE_API_KEY` | No | Alpha Vantage API key for 7-year average P/E feature |
 
 ## Running in Background
 
