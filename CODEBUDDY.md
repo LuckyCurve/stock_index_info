@@ -51,11 +51,11 @@ uv run mypy src/
 
 ```
 src/stock_index_info/
-├── alpha_vantage.py # Alpha Vantage API 客户端，获取历史年度 EPS 数据；使用 yfinance 获取当前股价；计算7年平均市盈率
+├── alpha_vantage.py # Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)
 ├── bot.py           # Telegram Bot 主入口和命令处理
 ├── config.py        # 环境变量和配置管理
 ├── db.py            # SQLite 数据库操作
-├── models.py        # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings, EarningsRecord, CachedEarnings)
+├── models.py        # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings, IncomeRecord, CachedIncome)
 ├── sec_edgar.py     # SEC EDGAR API 客户端，获取 10-Q/10-K 报告链接
 └── scrapers/        # 数据抓取模块
     ├── base.py      # BaseScraper 抽象基类
@@ -75,9 +75,9 @@ data/
 - **bot.py**: 使用 python-telegram-bot 库，包含命令处理器 (`/query`, `/sync`, `/status` 等)、定时同步任务、和 `@restricted` 装饰器用于用户权限控制
 - **scrapers/**: 继承 `BaseScraper` 抽象基类，使用 `curl_cffi` 抓取 Wikipedia 页面，`pandas` 解析 HTML 表格
 - **db.py**: SQLite 数据库操作，constituents 表存储股票指数成分股历史记录
-- **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示，`SECFilingRecord` 和 `RecentFilings` 用于 SEC 报告查询结果
+- **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示，`SECFilingRecord` 和 `RecentFilings` 用于 SEC 报告查询结果，`IncomeRecord` 和 `CachedIncome` 用于净利润缓存
 - **sec_edgar.py**: SEC EDGAR API 客户端，提供 `get_cik_from_ticker()`、`get_latest_10q()` 和 `get_recent_filings()` 函数，用于获取公司的季报(10-Q)和年报(10-K)链接
-- **alpha_vantage.py**: Alpha Vantage API 客户端，获取历史年度 EPS 数据；使用 yfinance 获取当前股价；计算7年平均市盈率
+- **alpha_vantage.py**: Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)
 
 ### 数据库 Schema
 
@@ -92,11 +92,11 @@ CREATE TABLE constituents (
     UNIQUE(ticker, index_code, added_date)
 );
 
-CREATE TABLE earnings (
+CREATE TABLE income_statements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
     fiscal_year INTEGER NOT NULL,
-    eps REAL NOT NULL,
+    net_income REAL NOT NULL,
     last_updated TEXT NOT NULL,
     UNIQUE(ticker, fiscal_year)
 );
