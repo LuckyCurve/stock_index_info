@@ -70,18 +70,18 @@ class RecentFilings:
 
 
 @dataclass
-class EarningsRecord:
-    """Annual EPS record for a stock."""
+class IncomeRecord:
+    """Annual net income record for a stock."""
 
     ticker: str
     fiscal_year: int
-    eps: float
+    net_income: float  # Net income in dollars (not millions)
 
 
 @dataclass
-class CachedEarnings:
-    """Cached earnings data for a stock."""
+class CachedIncome:
+    """Cached income statement data for a stock."""
 
     ticker: str
     last_updated: str  # ISO format date
-    annual_eps: list[EarningsRecord]
+    annual_income: list[IncomeRecord]

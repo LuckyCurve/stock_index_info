@@ -9,8 +9,8 @@ from stock_index_info.models import (
     ConstituentRecord,
     IndexMembership,
     INDEX_NAMES,
-    EarningsRecord,
-    CachedEarnings,
+    IncomeRecord,
+    CachedIncome,
 )
 
 SCHEMA = """
@@ -27,16 +27,16 @@ CREATE TABLE IF NOT EXISTS constituents (
 CREATE INDEX IF NOT EXISTS idx_constituents_ticker ON constituents(ticker);
 CREATE INDEX IF NOT EXISTS idx_constituents_index ON constituents(index_code);
 
-CREATE TABLE IF NOT EXISTS earnings (
+CREATE TABLE IF NOT EXISTS income_statements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
     fiscal_year INTEGER NOT NULL,
-    eps REAL NOT NULL,
+    net_income REAL NOT NULL,
     last_updated TEXT NOT NULL,
     UNIQUE(ticker, fiscal_year)
 );
 
-CREATE INDEX IF NOT EXISTS idx_earnings_ticker ON earnings(ticker);
+CREATE INDEX IF NOT EXISTS idx_income_statements_ticker ON income_statements(ticker);
 """
 
 
@@ -131,38 +131,38 @@ def get_index_constituents(
     return [row[0] for row in cursor.fetchall()]
 
 
-def save_earnings(
+def save_income(
     conn: sqlite3.Connection,
     ticker: str,
-    records: list[EarningsRecord],
+    records: list[IncomeRecord],
     last_updated: str,
 ) -> None:
-    """Save earnings records for a ticker, replacing any existing data."""
+    """Save income statement records for a ticker, replacing any existing data."""
     ticker_upper = ticker.upper()
 
     # Delete existing data for this ticker
-    conn.execute("DELETE FROM earnings WHERE ticker = ?", (ticker_upper,))
+    conn.execute("DELETE FROM income_statements WHERE ticker = ?", (ticker_upper,))
 
     # Insert new records
     for record in records:
         conn.execute(
             """
-            INSERT INTO earnings (ticker, fiscal_year, eps, last_updated)
+            INSERT INTO income_statements (ticker, fiscal_year, net_income, last_updated)
             VALUES (?, ?, ?, ?)
             """,
-            (ticker_upper, record.fiscal_year, record.eps, last_updated),
+            (ticker_upper, record.fiscal_year, record.net_income, last_updated),
         )
     conn.commit()
 
 
-def get_cached_earnings(conn: sqlite3.Connection, ticker: str) -> Optional[CachedEarnings]:
-    """Get cached earnings for a ticker, or None if not cached."""
+def get_cached_income(conn: sqlite3.Connection, ticker: str) -> Optional[CachedIncome]:
+    """Get cached income statements for a ticker, or None if not cached."""
     ticker_upper = ticker.upper()
 
     cursor = conn.execute(
         """
-        SELECT fiscal_year, eps, last_updated
-        FROM earnings
+        SELECT fiscal_year, net_income, last_updated
+        FROM income_statements
         WHERE ticker = ?
         ORDER BY fiscal_year DESC
         """,
@@ -173,10 +173,12 @@ def get_cached_earnings(conn: sqlite3.Connection, ticker: str) -> Optional[Cache
     if not rows:
         return None
 
-    records = [EarningsRecord(ticker=ticker_upper, fiscal_year=row[0], eps=row[1]) for row in rows]
+    records = [
+        IncomeRecord(ticker=ticker_upper, fiscal_year=row[0], net_income=row[1]) for row in rows
+    ]
 
-    return CachedEarnings(
+    return CachedIncome(
         ticker=ticker_upper,
         last_updated=rows[0][2],  # All rows have same last_updated
-        annual_eps=records,
+        annual_income=records,
     )
