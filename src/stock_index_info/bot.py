@@ -3,7 +3,7 @@
 import datetime
 import logging
 from functools import wraps
-from typing import Callable, Coroutine, Any
+from typing import Callable, Coroutine, Any, Optional
 
 from telegram import BotCommand, Update
 from telegram.ext import (
@@ -32,6 +32,7 @@ from stock_index_info.db import (
 from stock_index_info.scrapers.sp500 import SP500Scraper
 from stock_index_info.scrapers.nasdaq100 import NASDAQ100Scraper
 from stock_index_info.sec_edgar import get_recent_filings
+from stock_index_info.alpha_vantage import get_7year_pe
 
 # Configure logging
 logging.basicConfig(
@@ -248,6 +249,24 @@ async def _query_ticker(update: Update, ticker: str) -> None:
         # Build response
         lines: list[str] = [f"*{ticker}*", ""]
 
+        # Fetch SEC filings first (needed for cache invalidation check)
+        filings = get_recent_filings(ticker)
+
+        # Get latest filing date for cache invalidation
+        latest_filing_date: Optional[str] = None
+        if filings:
+            all_dates: list[str] = [q.filing_date for q in filings.quarterly]
+            if filings.annual:
+                all_dates.append(filings.annual.filing_date)
+            if all_dates:
+                latest_filing_date = max(all_dates)
+
+        # Calculate and display 7-year average P/E (at the top)
+        pe = get_7year_pe(conn, ticker, latest_filing_date=latest_filing_date)
+        if pe is not None:
+            lines.append(f"P/E (7Y Avg): {pe:.1f}")
+            lines.append("")
+
         if memberships:
             lines.append("Index Membership:")
             lines.append("```")
@@ -266,8 +285,7 @@ async def _query_ticker(update: Update, ticker: str) -> None:
         else:
             lines.append("Not found in any tracked index.")
 
-        # Fetch SEC filings (silent skip if not found)
-        filings = get_recent_filings(ticker)
+        # Display SEC filings
         if filings and (filings.quarterly or filings.annual):
             lines.append("")
             lines.append("SEC Filings:")
