@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Optional
 
 
 # Telegram Bot Token - must be set via environment variable
@@ -22,6 +23,9 @@ DB_PATH = DATA_DIR / "indices.db"
 # Hour of day to run sync (0-23), default 2 AM
 SYNC_HOUR: int = int(os.environ.get("SYNC_HOUR", "2"))
 SYNC_MINUTE: int = int(os.environ.get("SYNC_MINUTE", "0"))
+
+# Alpha Vantage API key (optional - P/E feature disabled if not set)
+ALPHA_VANTAGE_API_KEY: Optional[str] = os.environ.get("ALPHA_VANTAGE_API_KEY") or None
 
 
 def validate_config() -> list[str]:

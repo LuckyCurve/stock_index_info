@@ -5,7 +5,13 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from stock_index_info.models import ConstituentRecord, IndexMembership, INDEX_NAMES
+from stock_index_info.models import (
+    ConstituentRecord,
+    IndexMembership,
+    INDEX_NAMES,
+    EarningsRecord,
+    CachedEarnings,
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS constituents (
@@ -20,6 +26,17 @@ CREATE TABLE IF NOT EXISTS constituents (
 
 CREATE INDEX IF NOT EXISTS idx_constituents_ticker ON constituents(ticker);
 CREATE INDEX IF NOT EXISTS idx_constituents_index ON constituents(index_code);
+
+CREATE TABLE IF NOT EXISTS earnings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    fiscal_year INTEGER NOT NULL,
+    eps REAL NOT NULL,
+    last_updated TEXT NOT NULL,
+    UNIQUE(ticker, fiscal_year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_earnings_ticker ON earnings(ticker);
 """
 
 
@@ -112,3 +129,54 @@ def get_index_constituents(
             (index_code, as_of_date.isoformat(), as_of_date.isoformat()),
         )
     return [row[0] for row in cursor.fetchall()]
+
+
+def save_earnings(
+    conn: sqlite3.Connection,
+    ticker: str,
+    records: list[EarningsRecord],
+    last_updated: str,
+) -> None:
+    """Save earnings records for a ticker, replacing any existing data."""
+    ticker_upper = ticker.upper()
+
+    # Delete existing data for this ticker
+    conn.execute("DELETE FROM earnings WHERE ticker = ?", (ticker_upper,))
+
+    # Insert new records
+    for record in records:
+        conn.execute(
+            """
+            INSERT INTO earnings (ticker, fiscal_year, eps, last_updated)
+            VALUES (?, ?, ?, ?)
+            """,
+            (ticker_upper, record.fiscal_year, record.eps, last_updated),
+        )
+    conn.commit()
+
+
+def get_cached_earnings(conn: sqlite3.Connection, ticker: str) -> Optional[CachedEarnings]:
+    """Get cached earnings for a ticker, or None if not cached."""
+    ticker_upper = ticker.upper()
+
+    cursor = conn.execute(
+        """
+        SELECT fiscal_year, eps, last_updated
+        FROM earnings
+        WHERE ticker = ?
+        ORDER BY fiscal_year DESC
+        """,
+        (ticker_upper,),
+    )
+
+    rows = cursor.fetchall()
+    if not rows:
+        return None
+
+    records = [EarningsRecord(ticker=ticker_upper, fiscal_year=row[0], eps=row[1]) for row in rows]
+
+    return CachedEarnings(
+        ticker=ticker_upper,
+        last_updated=rows[0][2],  # All rows have same last_updated
+        annual_eps=records,
+    )
