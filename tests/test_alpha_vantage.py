@@ -62,3 +62,65 @@ def test_get_current_price_invalid_ticker():
 
     price = get_current_price("INVALIDTICKER12345")
     assert price is None
+
+
+def test_calculate_7year_avg_pe():
+    """Test calculating 7-year average P/E."""
+    from stock_index_info.alpha_vantage import calculate_7year_avg_pe
+    from stock_index_info.models import EarningsRecord
+
+    records = [
+        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=5.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=4.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=3.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2021, eps=4.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2020, eps=5.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2019, eps=6.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2018, eps=8.0),
+    ]
+    # Average EPS = (5+4+3+4+5+6+8) / 7 = 35 / 7 = 5.0
+    # P/E = 100 / 5.0 = 20.0
+    current_price = 100.0
+
+    pe = calculate_7year_avg_pe(records, current_price)
+
+    assert pe is not None
+    assert abs(pe - 20.0) < 0.01
+
+
+def test_calculate_7year_avg_pe_insufficient_data():
+    """Test that P/E returns None when less than 7 years of data."""
+    from stock_index_info.alpha_vantage import calculate_7year_avg_pe
+    from stock_index_info.models import EarningsRecord
+
+    records = [
+        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=5.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=4.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=3.0),
+    ]
+    current_price = 100.0
+
+    pe = calculate_7year_avg_pe(records, current_price)
+
+    assert pe is None
+
+
+def test_calculate_7year_avg_pe_negative_average():
+    """Test that P/E returns None when average EPS is negative or zero."""
+    from stock_index_info.alpha_vantage import calculate_7year_avg_pe
+    from stock_index_info.models import EarningsRecord
+
+    records = [
+        EarningsRecord(ticker="TEST", fiscal_year=2024, eps=-5.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2023, eps=-4.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2022, eps=-3.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2021, eps=-4.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2020, eps=-5.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2019, eps=-6.0),
+        EarningsRecord(ticker="TEST", fiscal_year=2018, eps=-8.0),
+    ]
+    current_price = 100.0
+
+    pe = calculate_7year_avg_pe(records, current_price)
+
+    assert pe is None

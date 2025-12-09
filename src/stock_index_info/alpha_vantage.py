@@ -99,3 +99,29 @@ def get_current_price(ticker: str) -> Optional[float]:
         return None
     except Exception:
         return None
+
+
+def calculate_7year_avg_pe(
+    earnings: list[EarningsRecord],
+    current_price: float,
+) -> Optional[float]:
+    """Calculate P/E ratio using 7-year average EPS.
+
+    Args:
+        earnings: List of EarningsRecord, should be sorted by fiscal_year descending
+        current_price: Current stock price
+
+    Returns:
+        P/E ratio, or None if insufficient data (< 7 years) or avg EPS <= 0
+    """
+    if len(earnings) < 7:
+        return None
+
+    # Take the 7 most recent years
+    recent_7 = earnings[:7]
+    avg_eps = sum(r.eps for r in recent_7) / 7
+
+    if avg_eps <= 0:
+        return None
+
+    return current_price / avg_eps
