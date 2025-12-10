@@ -10,6 +10,7 @@ import yfinance as yf
 
 from stock_index_info.config import ALPHA_VANTAGE_API_KEY
 from stock_index_info.db import get_cached_income, save_income
+from stock_index_info.exchange_rate import convert_to_usd
 from stock_index_info.models import IncomeRecord
 
 logger = logging.getLogger(__name__)
@@ -18,11 +19,13 @@ logger = logging.getLogger(__name__)
 def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
     """Fetch annual net income data from Alpha Vantage INCOME_STATEMENT API.
 
+    Net income values are converted to USD if reported in a different currency.
+
     Args:
         ticker: Stock ticker symbol (e.g., "AAPL")
 
     Returns:
-        List of IncomeRecord sorted by fiscal_year descending,
+        List of IncomeRecord sorted by fiscal_year descending (net_income in USD),
         or None if API key not configured or ticker not found.
     """
     if not ALPHA_VANTAGE_API_KEY:
@@ -51,6 +54,11 @@ def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
         records: list[IncomeRecord] = []
         ticker_upper = ticker.upper()
 
+        # Get reported currency from the first report (same for all reports)
+        reported_currency = annual_reports[0].get("reportedCurrency", "USD")
+        if reported_currency != "USD":
+            logger.info(f"{ticker_upper} reports in {reported_currency}, will convert to USD")
+
         for entry in annual_reports:
             fiscal_date = entry.get("fiscalDateEnding", "")
             net_income_str = entry.get("netIncome", "")
@@ -62,6 +70,17 @@ def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
             try:
                 fiscal_year = int(fiscal_date[:4])
                 net_income = float(net_income_str)
+
+                # Convert to USD if necessary
+                if reported_currency != "USD":
+                    net_income_usd = convert_to_usd(net_income, reported_currency)
+                    if net_income_usd is None:
+                        logger.warning(
+                            f"Failed to convert {ticker_upper} net income from {reported_currency} to USD"
+                        )
+                        return None
+                    net_income = net_income_usd
+
                 records.append(
                     IncomeRecord(
                         ticker=ticker_upper,

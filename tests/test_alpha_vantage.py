@@ -176,3 +176,30 @@ def test_get_7year_pe_with_cache(db_connection):
 
     assert result is not None
     assert abs(result - 20.0) < 0.01
+
+
+def test_fetch_annual_net_income_non_usd_currency():
+    """Test fetching net income for a non-USD reporting company (NVO reports in DKK)."""
+    from stock_index_info.config import ALPHA_VANTAGE_API_KEY
+    from stock_index_info.alpha_vantage import fetch_annual_net_income
+    from stock_index_info.exchange_rate import clear_exchange_rate_cache
+
+    if not ALPHA_VANTAGE_API_KEY:
+        pytest.skip("ALPHA_VANTAGE_API_KEY not set")
+
+    clear_exchange_rate_cache()
+    records = fetch_annual_net_income("NVO")
+
+    assert records is not None
+    assert len(records) >= 7
+    assert all(r.ticker == "NVO" for r in records)
+
+    # NVO reports in DKK (~7 DKK per USD).
+    # Net income should be converted to USD, so values should be reasonable for a large company.
+    # NVO's net income in USD should be roughly $10B-$20B range (not $70B-$140B in DKK).
+    # If currency conversion is working, net income should be < 30 billion USD
+    for r in records:
+        # Sanity check: net income in USD should be reasonable (< $50B)
+        assert abs(r.net_income) < 50_000_000_000, (
+            f"Net income {r.net_income} seems too large - currency conversion may have failed"
+        )
