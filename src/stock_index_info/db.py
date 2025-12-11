@@ -11,6 +11,8 @@ from stock_index_info.models import (
     INDEX_NAMES,
     IncomeRecord,
     CachedIncome,
+    BalanceSheetRecord,
+    CachedBalanceSheet,
 )
 
 SCHEMA = """
@@ -37,6 +39,21 @@ CREATE TABLE IF NOT EXISTS income_statements (
 );
 
 CREATE INDEX IF NOT EXISTS idx_income_statements_ticker ON income_statements(ticker);
+
+CREATE TABLE IF NOT EXISTS balance_sheets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    fiscal_year INTEGER NOT NULL,
+    total_assets REAL NOT NULL,
+    total_liabilities REAL NOT NULL,
+    total_current_assets REAL NOT NULL,
+    goodwill REAL NOT NULL,
+    intangible_assets REAL NOT NULL,
+    last_updated TEXT NOT NULL,
+    UNIQUE(ticker, fiscal_year)
+);
+
+CREATE INDEX IF NOT EXISTS idx_balance_sheets_ticker ON balance_sheets(ticker);
 """
 
 
@@ -181,4 +198,79 @@ def get_cached_income(conn: sqlite3.Connection, ticker: str) -> Optional[CachedI
         ticker=ticker_upper,
         last_updated=rows[0][2],  # All rows have same last_updated
         annual_income=records,
+    )
+
+
+def save_balance_sheet(
+    conn: sqlite3.Connection,
+    ticker: str,
+    records: list[BalanceSheetRecord],
+    last_updated: str,
+) -> None:
+    """Save balance sheet records for a ticker, replacing any existing data."""
+    ticker_upper = ticker.upper()
+
+    # Delete existing data for this ticker
+    conn.execute("DELETE FROM balance_sheets WHERE ticker = ?", (ticker_upper,))
+
+    # Insert new records
+    for record in records:
+        conn.execute(
+            """
+            INSERT INTO balance_sheets (
+                ticker, fiscal_year, total_assets, total_liabilities,
+                total_current_assets, goodwill, intangible_assets, last_updated
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ticker_upper,
+                record.fiscal_year,
+                record.total_assets,
+                record.total_liabilities,
+                record.total_current_assets,
+                record.goodwill,
+                record.intangible_assets,
+                last_updated,
+            ),
+        )
+    conn.commit()
+
+
+def get_cached_balance_sheet(conn: sqlite3.Connection, ticker: str) -> Optional[CachedBalanceSheet]:
+    """Get cached balance sheet for a ticker, or None if not cached."""
+    ticker_upper = ticker.upper()
+
+    cursor = conn.execute(
+        """
+        SELECT fiscal_year, total_assets, total_liabilities, total_current_assets,
+               goodwill, intangible_assets, last_updated
+        FROM balance_sheets
+        WHERE ticker = ?
+        ORDER BY fiscal_year DESC
+        """,
+        (ticker_upper,),
+    )
+
+    rows = cursor.fetchall()
+    if not rows:
+        return None
+
+    records = [
+        BalanceSheetRecord(
+            ticker=ticker_upper,
+            fiscal_year=row[0],
+            total_assets=row[1],
+            total_liabilities=row[2],
+            total_current_assets=row[3],
+            goodwill=row[4],
+            intangible_assets=row[5],
+        )
+        for row in rows
+    ]
+
+    return CachedBalanceSheet(
+        ticker=ticker_upper,
+        last_updated=rows[0][6],  # All rows have same last_updated
+        annual_records=records,
     )

@@ -32,7 +32,8 @@ from stock_index_info.db import (
 from stock_index_info.scrapers.sp500 import SP500Scraper
 from stock_index_info.scrapers.nasdaq100 import NASDAQ100Scraper
 from stock_index_info.sec_edgar import get_recent_filings
-from stock_index_info.alpha_vantage import get_7year_pe, format_currency
+from stock_index_info.alpha_vantage import get_7year_pe, format_currency, get_market_cap
+from stock_index_info.balance_sheet import get_asset_valuation
 
 # Configure logging
 logging.basicConfig(
@@ -261,12 +262,35 @@ async def _query_ticker(update: Update, ticker: str) -> None:
             if all_dates:
                 latest_filing_date = max(all_dates)
 
+        # Get market cap once for all valuation calculations
+        market_cap = get_market_cap(ticker)
+
         # Calculate and display 7-year average P/E (at the top)
-        pe_result = get_7year_pe(conn, ticker, latest_filing_date=latest_filing_date)
+        pe_result = get_7year_pe(
+            conn, ticker, market_cap=market_cap, latest_filing_date=latest_filing_date
+        )
         if pe_result is not None:
             lines.append(
                 f"P/E (7Y Avg): {pe_result.pe:.1f} | Avg Income: {format_currency(pe_result.avg_income)}"
             )
+
+        # Calculate and display NTA/NCAV valuation
+        asset_val = None
+        if market_cap is not None:
+            asset_val = get_asset_valuation(
+                conn, ticker, market_cap=market_cap, latest_filing_date=latest_filing_date
+            )
+            if asset_val is not None:
+                # P/NTA line
+                p_nta_str = f"{asset_val.p_nta:.1f}x" if asset_val.p_nta is not None else "N/A"
+                lines.append(f"P/NTA: {p_nta_str} | NTA: {format_currency(asset_val.nta)}")
+
+                # P/NCAV line
+                p_ncav_str = f"{asset_val.p_ncav:.1f}x" if asset_val.p_ncav is not None else "N/A"
+                lines.append(f"P/NCAV: {p_ncav_str} | NCAV: {format_currency(asset_val.ncav)}")
+
+        # Add blank line after valuation metrics
+        if pe_result is not None or (market_cap is not None and asset_val is not None):
             lines.append("")
 
         if memberships:

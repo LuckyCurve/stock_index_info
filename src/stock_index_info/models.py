@@ -88,6 +88,38 @@ class CachedIncome:
 
 
 @dataclass
+class BalanceSheetRecord:
+    """Annual balance sheet record for a stock."""
+
+    ticker: str
+    fiscal_year: int
+    total_assets: float
+    total_liabilities: float
+    total_current_assets: float
+    goodwill: float
+    intangible_assets: float
+
+
+@dataclass
+class CachedBalanceSheet:
+    """Cached balance sheet data for a stock."""
+
+    ticker: str
+    last_updated: str  # ISO format date
+    annual_records: list["BalanceSheetRecord"]
+
+
+@dataclass
+class AssetValuationResult:
+    """NTA and NCAV calculation result."""
+
+    nta: float  # Net Tangible Assets
+    ncav: float  # Net Current Asset Value
+    p_nta: Optional[float]  # P/NTA ratio, None if NTA <= 0
+    p_ncav: Optional[float]  # P/NCAV ratio, None if NCAV <= 0
+
+
+@dataclass
 class PEResult:
     """7-year average P/E calculation result."""
 
