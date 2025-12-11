@@ -85,3 +85,11 @@ class CachedIncome:
     ticker: str
     last_updated: str  # ISO format date
     annual_income: list[IncomeRecord]
+
+
+@dataclass
+class PEResult:
+    """7-year average P/E calculation result."""
+
+    pe: float  # P/E ratio
+    avg_income: float  # 7-year average net income in USD
