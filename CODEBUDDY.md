@@ -51,16 +51,17 @@ uv run mypy src/
 
 ```
 src/stock_index_info/
-├── alpha_vantage.py # Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)
-├── bot.py           # Telegram Bot 主入口和命令处理
-├── config.py        # 环境变量和配置管理
-├── db.py            # SQLite 数据库操作
-├── models.py        # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings, IncomeRecord, CachedIncome)
-├── sec_edgar.py     # SEC EDGAR API 客户端，获取 10-Q/10-K 报告链接
-└── scrapers/        # 数据抓取模块
-    ├── base.py      # BaseScraper 抽象基类
-    ├── sp500.py     # S&P 500 Wikipedia 抓取器
-    └── nasdaq100.py # NASDAQ 100 Wikipedia 抓取器
+├── alpha_vantage.py  # Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)
+├── bot.py            # Telegram Bot 主入口和命令处理
+├── config.py         # 环境变量和配置管理
+├── db.py             # SQLite 数据库操作
+├── exchange_rate.py  # 汇率转换工具，从 open.er-api.com 获取汇率，将外币净利润转换为 USD
+├── models.py         # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings, IncomeRecord, CachedIncome, PEResult)
+├── sec_edgar.py      # SEC EDGAR API 客户端，获取 10-Q/10-K 报告链接
+└── scrapers/         # 数据抓取模块
+    ├── base.py       # BaseScraper 抽象基类
+    ├── sp500.py      # S&P 500 Wikipedia 抓取器
+    └── nasdaq100.py  # NASDAQ 100 Wikipedia 抓取器
 
 scripts/
 └── export_csv.py    # 导出成分股数据到 CSV 文件
@@ -75,9 +76,10 @@ data/
 - **bot.py**: 使用 python-telegram-bot 库，包含命令处理器 (`/query`, `/sync`, `/status` 等)、定时同步任务、和 `@restricted` 装饰器用于用户权限控制
 - **scrapers/**: 继承 `BaseScraper` 抽象基类，使用 `curl_cffi` 抓取 Wikipedia 页面，`pandas` 解析 HTML 表格
 - **db.py**: SQLite 数据库操作，constituents 表存储股票指数成分股历史记录
-- **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示，`SECFilingRecord` 和 `RecentFilings` 用于 SEC 报告查询结果，`IncomeRecord` 和 `CachedIncome` 用于净利润缓存
+- **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示 (包含 `is_current` 和 `years_in_index` 计算属性)，`SECFilingRecord` 和 `RecentFilings` 用于 SEC 报告查询结果，`IncomeRecord` 和 `CachedIncome` 用于净利润缓存，`PEResult` 用于7年平均市盈率计算结果
 - **sec_edgar.py**: SEC EDGAR API 客户端，提供 `get_cik_from_ticker()`、`get_latest_10q()` 和 `get_recent_filings()` 函数，用于获取公司的季报(10-Q)和年报(10-K)链接
-- **alpha_vantage.py**: Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)
+- **alpha_vantage.py**: Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)。`get_7year_pe()` 函数使用缓存策略，当有新的 SEC filing 时自动刷新缓存
+- **exchange_rate.py**: 汇率转换工具，从 open.er-api.com 获取汇率 (24小时缓存)。用于将非 USD 报告的净利润转换为 USD。主要函数: `convert_to_usd()`、`get_exchange_rates()`
 
 ### 数据库 Schema
 
@@ -86,20 +88,22 @@ CREATE TABLE constituents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
     index_code TEXT NOT NULL CHECK (index_code IN ('sp500', 'nasdaq100')),
-    added_date TEXT NOT NULL,
+    added_date TEXT,  -- 可为 NULL
     removed_date TEXT,
     reason TEXT,
     UNIQUE(ticker, index_code, added_date)
 );
+-- 索引: idx_constituents_ticker, idx_constituents_index
 
 CREATE TABLE income_statements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticker TEXT NOT NULL,
     fiscal_year INTEGER NOT NULL,
-    net_income REAL NOT NULL,
+    net_income REAL NOT NULL,  -- 净利润 (已转换为 USD)
     last_updated TEXT NOT NULL,
     UNIQUE(ticker, fiscal_year)
 );
+-- 索引: idx_income_statements_ticker
 ```
 
 支持的 `index_code` 值定义在 `models.py` 的 `INDEX_NAMES` 字典中。
@@ -109,6 +113,13 @@ CREATE TABLE income_statements (
 1. `Scraper.fetch()` -> 从 Wikipedia 抓取并解析数据，返回 `ConstituentRecord` 列表
 2. `insert_constituent()` -> 存储到 SQLite (INSERT OR IGNORE 处理重复)
 3. `get_stock_memberships()` / `get_index_constituents()` -> 查询数据返回给用户
+
+**P/E 计算数据流:**
+1. `get_recent_filings()` -> 获取最新 SEC filing 日期用于缓存失效判断
+2. `get_7year_pe()` -> 检查缓存是否需要刷新，调用 `fetch_annual_net_income()` 获取数据
+3. `fetch_annual_net_income()` -> 从 Alpha Vantage 获取净利润，使用 `convert_to_usd()` 转换货币
+4. `get_market_cap()` -> 从 yfinance 获取市值 (失败时回退到 Alpha Vantage)
+5. `calculate_7year_avg_pe()` -> 计算 P/E = 市值 / 7年平均净利润
 
 ### 同步策略
 

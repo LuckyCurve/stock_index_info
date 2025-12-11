@@ -54,7 +54,7 @@ You can also send a ticker symbol directly (e.g., `AAPL`) without any command.
 ```
 AAPL
 
-P/E (7Y Avg): 28.5
+P/E (7Y Avg): 28.5 | Avg Income: $85.2B
 
 Index Membership:
 Index        Added        Removed      Years
@@ -68,12 +68,15 @@ Quarterly (10-Q):
   2024-05-03: https://www.sec.gov/Archives/edgar/data/...
 Annual (10-K):
   2023-11-03: https://www.sec.gov/Archives/edgar/data/...
+
+Reuters Valuation: AAPL.O | AAPL.N | AAPL
 ```
 
 The `/query` command displays:
-- **7-Year Average P/E Ratio** - Calculated using historical EPS from Alpha Vantage and current price from Yahoo Finance (requires `ALPHA_VANTAGE_API_KEY`)
+- **7-Year Average P/E Ratio** - Calculated using historical net income from Alpha Vantage and current market cap from Yahoo Finance. Shows both P/E ratio and 7-year average net income (requires `ALPHA_VANTAGE_API_KEY`). Non-USD currencies are automatically converted.
 - **Index Membership** - S&P 500 and NASDAQ 100 membership history
 - **SEC Filings** - Up to 4 quarterly 10-Q reports and the latest annual 10-K report from SEC EDGAR
+- **Reuters Valuation Links** - Quick links to Reuters valuation page (tries NASDAQ .O, NYSE .N, and no-suffix variants)
 
 ## CSV Data
 
