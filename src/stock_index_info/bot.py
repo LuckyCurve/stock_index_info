@@ -32,7 +32,7 @@ from stock_index_info.db import (
 from stock_index_info.scrapers.sp500 import SP500Scraper
 from stock_index_info.scrapers.nasdaq100 import NASDAQ100Scraper
 from stock_index_info.sec_edgar import get_recent_filings
-from stock_index_info.alpha_vantage import get_7year_pe
+from stock_index_info.alpha_vantage import get_7year_pe, format_currency
 
 # Configure logging
 logging.basicConfig(
@@ -262,9 +262,11 @@ async def _query_ticker(update: Update, ticker: str) -> None:
                 latest_filing_date = max(all_dates)
 
         # Calculate and display 7-year average P/E (at the top)
-        pe = get_7year_pe(conn, ticker, latest_filing_date=latest_filing_date)
-        if pe is not None:
-            lines.append(f"P/E (7Y Avg): {pe:.1f}")
+        pe_result = get_7year_pe(conn, ticker, latest_filing_date=latest_filing_date)
+        if pe_result is not None:
+            lines.append(
+                f"P/E (7Y Avg): {pe_result.pe:.1f} | Avg Income: {format_currency(pe_result.avg_income)}"
+            )
             lines.append("")
 
         if memberships:
