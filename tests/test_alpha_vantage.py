@@ -85,10 +85,11 @@ def test_calculate_7year_avg_pe():
     # P/E = 2_000_000_000 / 100_000_000 = 20.0
     market_cap = 2_000_000_000.0
 
-    pe = calculate_7year_avg_pe(records, market_cap)
+    result = calculate_7year_avg_pe(records, market_cap)
 
-    assert pe is not None
-    assert abs(pe - 20.0) < 0.01
+    assert result is not None
+    assert abs(result.pe - 20.0) < 0.01
+    assert abs(result.avg_income - 100_000_000) < 0.01
 
 
 def test_calculate_7year_avg_pe_insufficient_data():
@@ -175,7 +176,8 @@ def test_get_7year_pe_with_cache(db_connection):
     result = get_7year_pe(db_connection, "TEST", market_cap=2_000_000_000.0)
 
     assert result is not None
-    assert abs(result - 20.0) < 0.01
+    assert abs(result.pe - 20.0) < 0.01
+    assert abs(result.avg_income - 100_000_000) < 0.01
 
 
 def test_fetch_annual_net_income_non_usd_currency():

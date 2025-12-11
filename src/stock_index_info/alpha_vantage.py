@@ -11,7 +11,7 @@ import yfinance as yf
 from stock_index_info.config import ALPHA_VANTAGE_API_KEY
 from stock_index_info.db import get_cached_income, save_income
 from stock_index_info.exchange_rate import convert_to_usd
-from stock_index_info.models import IncomeRecord
+from stock_index_info.models import IncomeRecord, PEResult
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ def get_market_cap(ticker: str) -> Optional[float]:
 def calculate_7year_avg_pe(
     income_records: list[IncomeRecord],
     market_cap: float,
-) -> Optional[float]:
+) -> Optional[PEResult]:
     """Calculate P/E ratio using 7-year average net income.
 
     Args:
@@ -191,7 +191,7 @@ def calculate_7year_avg_pe(
         market_cap: Current market capitalization in dollars
 
     Returns:
-        P/E ratio, or None if:
+        PEResult with P/E ratio and average income, or None if:
         - Less than 7 years of data
         - Years are not consecutive
         - Average net income <= 0
@@ -213,7 +213,8 @@ def calculate_7year_avg_pe(
     if avg_net_income <= 0:
         return None
 
-    return market_cap / avg_net_income
+    pe = market_cap / avg_net_income
+    return PEResult(pe=pe, avg_income=avg_net_income)
 
 
 def get_7year_pe(
@@ -221,7 +222,7 @@ def get_7year_pe(
     ticker: str,
     market_cap: Optional[float] = None,
     latest_filing_date: Optional[str] = None,
-) -> Optional[float]:
+) -> Optional[PEResult]:
     """Get 7-year average P/E ratio for a ticker.
 
     Uses cached net income data if available and not stale. Fetches from Alpha Vantage
@@ -235,7 +236,7 @@ def get_7year_pe(
                            cache last_updated, triggers cache refresh.
 
     Returns:
-        7-year average P/E ratio, or None if insufficient data.
+        PEResult with 7-year average P/E ratio and average income, or None if insufficient data.
     """
     ticker_upper = ticker.upper()
 
