@@ -52,11 +52,12 @@ uv run mypy src/
 ```
 src/stock_index_info/
 ├── alpha_vantage.py  # Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)
+├── balance_sheet.py  # 资产负债表数据获取，计算 NTA (净有形资产) 和 NCAV (净流动资产价值) 估值指标
 ├── bot.py            # Telegram Bot 主入口和命令处理
 ├── config.py         # 环境变量和配置管理
 ├── db.py             # SQLite 数据库操作
 ├── exchange_rate.py  # 汇率转换工具，从 open.er-api.com 获取汇率，将外币净利润转换为 USD
-├── models.py         # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings, IncomeRecord, CachedIncome, PEResult)
+├── models.py         # 数据模型 (ConstituentRecord, IndexMembership, SECFilingRecord, RecentFilings, IncomeRecord, CachedIncome, PEResult, BalanceSheetRecord, CachedBalanceSheet, AssetValuationResult)
 ├── sec_edgar.py      # SEC EDGAR API 客户端，获取 10-Q/10-K 报告链接
 └── scrapers/         # 数据抓取模块
     ├── base.py       # BaseScraper 抽象基类
@@ -79,6 +80,7 @@ data/
 - **models.py**: `ConstituentRecord` 用于存储抓取数据，`IndexMembership` 用于查询结果展示 (包含 `is_current` 和 `years_in_index` 计算属性)，`SECFilingRecord` 和 `RecentFilings` 用于 SEC 报告查询结果，`IncomeRecord` 和 `CachedIncome` 用于净利润缓存，`PEResult` 用于7年平均市盈率计算结果
 - **sec_edgar.py**: SEC EDGAR API 客户端，提供 `get_cik_from_ticker()`、`get_latest_10q()` 和 `get_recent_filings()` 函数，用于获取公司的季报(10-Q)和年报(10-K)链接
 - **alpha_vantage.py**: Alpha Vantage API 客户端，获取历史年度净利润数据；使用 yfinance 获取市值；计算7年平均市盈率 (市值/7年平均净利润)。`get_7year_pe()` 函数使用缓存策略，当有新的 SEC filing 时自动刷新缓存
+- **balance_sheet.py**: 资产负债表数据获取和估值计算。`fetch_balance_sheet()` 从 Alpha Vantage 获取资产负债表数据，`calculate_asset_valuation()` 计算 NTA 和 NCAV，`get_asset_valuation()` 是带缓存的入口函数。NTA = 总资产 - 总负债 - 商誉 - 无形资产；NCAV = 流动资产 - 总负债
 - **exchange_rate.py**: 汇率转换工具，从 open.er-api.com 获取汇率 (24小时缓存)。用于将非 USD 报告的净利润转换为 USD。主要函数: `convert_to_usd()`、`get_exchange_rates()`
 
 ### 数据库 Schema
@@ -104,6 +106,20 @@ CREATE TABLE income_statements (
     UNIQUE(ticker, fiscal_year)
 );
 -- 索引: idx_income_statements_ticker
+
+CREATE TABLE balance_sheets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    fiscal_year INTEGER NOT NULL,
+    total_assets REAL NOT NULL,
+    total_liabilities REAL NOT NULL,
+    total_current_assets REAL NOT NULL,
+    goodwill REAL NOT NULL,
+    intangible_assets REAL NOT NULL,
+    last_updated TEXT NOT NULL,
+    UNIQUE(ticker, fiscal_year)
+);
+-- 索引: idx_balance_sheets_ticker
 ```
 
 支持的 `index_code` 值定义在 `models.py` 的 `INDEX_NAMES` 字典中。
@@ -120,6 +136,11 @@ CREATE TABLE income_statements (
 3. `fetch_annual_net_income()` -> 从 Alpha Vantage 获取净利润，使用 `convert_to_usd()` 转换货币
 4. `get_market_cap()` -> 从 yfinance 获取市值 (失败时回退到 Alpha Vantage)
 5. `calculate_7year_avg_pe()` -> 计算 P/E = 市值 / 7年平均净利润
+
+**NTA/NCAV 计算数据流:**
+1. `get_asset_valuation()` -> 带缓存入口，检查缓存是否过期 (基于 latest_filing_date)
+2. `fetch_balance_sheet()` -> 从 Alpha Vantage BALANCE_SHEET API 获取资产负债表
+3. `calculate_asset_valuation()` -> 计算 NTA 和 NCAV，以及 P/NTA 和 P/NCAV 比率
 
 ### 同步策略
 

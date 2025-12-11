@@ -55,6 +55,8 @@ You can also send a ticker symbol directly (e.g., `AAPL`) without any command.
 AAPL
 
 P/E (7Y Avg): 28.5 | Avg Income: $85.2B
+P/NTA: 45.2x | NTA: $62.1B
+P/NCAV: N/A | NCAV: -$18.3B
 
 Index Membership:
 Index        Added        Removed      Years
@@ -74,6 +76,8 @@ Reuters Valuation: AAPL.O | AAPL.N | AAPL
 
 The `/query` command displays:
 - **7-Year Average P/E Ratio** - Calculated using historical net income from Alpha Vantage and current market cap from Yahoo Finance. Shows both P/E ratio and 7-year average net income (requires `ALPHA_VANTAGE_API_KEY`). Non-USD currencies are automatically converted.
+- **P/NTA (Price to Net Tangible Assets)** - Market cap divided by NTA. NTA = Total Assets - Total Liabilities - Goodwill - Intangible Assets. Shows "N/A" if NTA <= 0.
+- **P/NCAV (Price to Net Current Asset Value)** - Market cap divided by NCAV. NCAV = Total Current Assets - Total Liabilities (Graham's "net-net" metric). Shows "N/A" if NCAV <= 0.
 - **Index Membership** - S&P 500 and NASDAQ 100 membership history
 - **SEC Filings** - Up to 4 quarterly 10-Q reports and the latest annual 10-K report from SEC EDGAR
 - **Reuters Valuation Links** - Quick links to Reuters valuation page (tries NASDAQ .O, NYSE .N, and no-suffix variants)
