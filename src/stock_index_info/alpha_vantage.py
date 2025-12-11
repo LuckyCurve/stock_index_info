@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+import time
 from datetime import date
 from typing import Optional
 
@@ -51,7 +52,13 @@ def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
         List of IncomeRecord sorted by fiscal_year descending (net_income in USD),
         or None if API key not configured or ticker not found.
     """
+    ticker_upper = ticker.upper()
+
     if not ALPHA_VANTAGE_API_KEY:
+        logger.error(
+            f"[API] fetch_annual_net_income({ticker_upper}): "
+            "ALPHA_VANTAGE_API_KEY not configured, skipping request"
+        )
         return None
 
     url = "https://www.alphavantage.co/query"
@@ -61,21 +68,44 @@ def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
         "apikey": ALPHA_VANTAGE_API_KEY,
     }
 
+    logger.info(
+        f"[API] fetch_annual_net_income({ticker_upper}): requesting Alpha Vantage INCOME_STATEMENT"
+    )
+    start_time = time.time()
+
     try:
         response = requests.get(url, params=params, timeout=30)
+        elapsed_ms = (time.time() - start_time) * 1000
         response.raise_for_status()
         data = response.json()
 
+        logger.info(
+            f"[API] fetch_annual_net_income({ticker_upper}): "
+            f"response status={response.status_code}, elapsed={elapsed_ms:.0f}ms"
+        )
+
         # Check for error responses
-        if "Error Message" in data or "Note" in data:
+        if "Error Message" in data:
+            logger.warning(
+                f"[API] fetch_annual_net_income({ticker_upper}): "
+                f"API returned error: {data.get('Error Message')}"
+            )
+            return None
+        if "Note" in data:
+            logger.warning(
+                f"[API] fetch_annual_net_income({ticker_upper}): "
+                f"API rate limit or note: {data.get('Note')}"
+            )
             return None
 
         annual_reports = data.get("annualReports", [])
         if not annual_reports:
+            logger.warning(
+                f"[API] fetch_annual_net_income({ticker_upper}): no annualReports in response"
+            )
             return None
 
         records: list[IncomeRecord] = []
-        ticker_upper = ticker.upper()
 
         # Get reported currency from the first report (same for all reports)
         reported_currency = annual_reports[0].get("reportedCurrency", "USD")
@@ -115,13 +145,33 @@ def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
                 continue
 
         if not records:
+            logger.warning(
+                f"[API] fetch_annual_net_income({ticker_upper}): no valid records after parsing"
+            )
             return None
 
         # Sort by fiscal year descending
         records.sort(key=lambda r: r.fiscal_year, reverse=True)
+        logger.info(
+            f"[API] fetch_annual_net_income({ticker_upper}): "
+            f"successfully parsed {len(records)} annual records"
+        )
         return records
 
-    except Exception:
+    except requests.RequestsError as e:
+        elapsed_ms = (time.time() - start_time) * 1000
+        logger.error(
+            f"[API] fetch_annual_net_income({ticker_upper}): "
+            f"request failed after {elapsed_ms:.0f}ms - {type(e).__name__}: {e}"
+        )
+        return None
+    except Exception as e:
+        elapsed_ms = (time.time() - start_time) * 1000
+        logger.error(
+            f"[API] fetch_annual_net_income({ticker_upper}): "
+            f"unexpected error after {elapsed_ms:.0f}ms - {type(e).__name__}: {e}",
+            exc_info=True,
+        )
         return None
 
 
@@ -139,21 +189,41 @@ def get_market_cap(ticker: str) -> Optional[float]:
     ticker_upper = ticker.upper()
 
     # Try yfinance first
+    logger.info(f"[API] get_market_cap({ticker_upper}): requesting from yfinance")
+    yf_start_time = time.time()
     try:
         stock = yf.Ticker(ticker_upper)
         info = stock.info
+        yf_elapsed_ms = (time.time() - yf_start_time) * 1000
         if info and "marketCap" in info:
             market_cap = info["marketCap"]
             if market_cap is not None:
-                logger.debug(f"Got market cap for {ticker_upper} from yfinance: {market_cap}")
+                logger.info(
+                    f"[API] get_market_cap({ticker_upper}): "
+                    f"yfinance returned {market_cap}, elapsed={yf_elapsed_ms:.0f}ms"
+                )
                 return float(market_cap)
+        logger.warning(
+            f"[API] get_market_cap({ticker_upper}): "
+            f"yfinance returned no marketCap, elapsed={yf_elapsed_ms:.0f}ms"
+        )
     except Exception as e:
-        logger.warning(f"yfinance failed for {ticker_upper}: {type(e).__name__}: {e}")
+        yf_elapsed_ms = (time.time() - yf_start_time) * 1000
+        logger.warning(
+            f"[API] get_market_cap({ticker_upper}): "
+            f"yfinance failed after {yf_elapsed_ms:.0f}ms - {type(e).__name__}: {e}"
+        )
 
     # Fallback to Alpha Vantage OVERVIEW endpoint
     if not ALPHA_VANTAGE_API_KEY:
-        logger.warning(f"Cannot get market cap for {ticker_upper}: yfinance failed and no API key")
+        logger.error(
+            f"[API] get_market_cap({ticker_upper}): "
+            "yfinance failed and ALPHA_VANTAGE_API_KEY not configured"
+        )
         return None
+
+    logger.info(f"[API] get_market_cap({ticker_upper}): falling back to Alpha Vantage OVERVIEW")
+    av_start_time = time.time()
 
     try:
         url = "https://www.alphavantage.co/query"
@@ -163,20 +233,43 @@ def get_market_cap(ticker: str) -> Optional[float]:
             "apikey": ALPHA_VANTAGE_API_KEY,
         }
         response = requests.get(url, params=params, timeout=30)
+        av_elapsed_ms = (time.time() - av_start_time) * 1000
         response.raise_for_status()
         data = response.json()
+
+        logger.info(
+            f"[API] get_market_cap({ticker_upper}): "
+            f"Alpha Vantage OVERVIEW response status={response.status_code}, elapsed={av_elapsed_ms:.0f}ms"
+        )
 
         if "MarketCapitalization" in data:
             market_cap_str = data["MarketCapitalization"]
             if market_cap_str and market_cap_str != "None":
                 market_cap = float(market_cap_str)
-                logger.debug(f"Got market cap for {ticker_upper} from Alpha Vantage: {market_cap}")
+                logger.info(
+                    f"[API] get_market_cap({ticker_upper}): Alpha Vantage returned {market_cap}"
+                )
                 return market_cap
 
-        logger.warning(f"Alpha Vantage OVERVIEW has no MarketCapitalization for {ticker_upper}")
+        logger.warning(
+            f"[API] get_market_cap({ticker_upper}): "
+            "Alpha Vantage OVERVIEW has no MarketCapitalization"
+        )
+        return None
+    except requests.RequestsError as e:
+        av_elapsed_ms = (time.time() - av_start_time) * 1000
+        logger.error(
+            f"[API] get_market_cap({ticker_upper}): "
+            f"Alpha Vantage request failed after {av_elapsed_ms:.0f}ms - {type(e).__name__}: {e}"
+        )
         return None
     except Exception as e:
-        logger.warning(f"Alpha Vantage OVERVIEW failed for {ticker_upper}: {type(e).__name__}: {e}")
+        av_elapsed_ms = (time.time() - av_start_time) * 1000
+        logger.error(
+            f"[API] get_market_cap({ticker_upper}): "
+            f"unexpected error after {av_elapsed_ms:.0f}ms - {type(e).__name__}: {e}",
+            exc_info=True,
+        )
         return None
 
 

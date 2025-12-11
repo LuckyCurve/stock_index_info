@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+import time
 from datetime import date
 from typing import Optional
 
@@ -30,7 +31,13 @@ def fetch_balance_sheet(ticker: str) -> Optional[list[BalanceSheetRecord]]:
         List of BalanceSheetRecord sorted by fiscal_year descending,
         or None if API key not configured or ticker not found.
     """
+    ticker_upper = ticker.upper()
+
     if not ALPHA_VANTAGE_API_KEY:
+        logger.error(
+            f"[API] fetch_balance_sheet({ticker_upper}): "
+            "ALPHA_VANTAGE_API_KEY not configured, skipping request"
+        )
         return None
 
     url = "https://www.alphavantage.co/query"
@@ -40,21 +47,44 @@ def fetch_balance_sheet(ticker: str) -> Optional[list[BalanceSheetRecord]]:
         "apikey": ALPHA_VANTAGE_API_KEY,
     }
 
+    logger.info(
+        f"[API] fetch_balance_sheet({ticker_upper}): requesting Alpha Vantage BALANCE_SHEET"
+    )
+    start_time = time.time()
+
     try:
         response = requests.get(url, params=params, timeout=30)
+        elapsed_ms = (time.time() - start_time) * 1000
         response.raise_for_status()
         data = response.json()
 
+        logger.info(
+            f"[API] fetch_balance_sheet({ticker_upper}): "
+            f"response status={response.status_code}, elapsed={elapsed_ms:.0f}ms"
+        )
+
         # Check for error responses
-        if "Error Message" in data or "Note" in data:
+        if "Error Message" in data:
+            logger.warning(
+                f"[API] fetch_balance_sheet({ticker_upper}): "
+                f"API returned error: {data.get('Error Message')}"
+            )
+            return None
+        if "Note" in data:
+            logger.warning(
+                f"[API] fetch_balance_sheet({ticker_upper}): "
+                f"API rate limit or note: {data.get('Note')}"
+            )
             return None
 
         annual_reports = data.get("annualReports", [])
         if not annual_reports:
+            logger.warning(
+                f"[API] fetch_balance_sheet({ticker_upper}): no annualReports in response"
+            )
             return None
 
         records: list[BalanceSheetRecord] = []
-        ticker_upper = ticker.upper()
 
         # Get reported currency from the first report
         reported_currency = annual_reports[0].get("reportedCurrency", "USD")
@@ -135,13 +165,33 @@ def fetch_balance_sheet(ticker: str) -> Optional[list[BalanceSheetRecord]]:
                 continue
 
         if not records:
+            logger.warning(
+                f"[API] fetch_balance_sheet({ticker_upper}): no valid records after parsing"
+            )
             return None
 
         # Sort by fiscal year descending
         records.sort(key=lambda r: r.fiscal_year, reverse=True)
+        logger.info(
+            f"[API] fetch_balance_sheet({ticker_upper}): "
+            f"successfully parsed {len(records)} annual records"
+        )
         return records
 
-    except Exception:
+    except requests.RequestsError as e:
+        elapsed_ms = (time.time() - start_time) * 1000
+        logger.error(
+            f"[API] fetch_balance_sheet({ticker_upper}): "
+            f"request failed after {elapsed_ms:.0f}ms - {type(e).__name__}: {e}"
+        )
+        return None
+    except Exception as e:
+        elapsed_ms = (time.time() - start_time) * 1000
+        logger.error(
+            f"[API] fetch_balance_sheet({ticker_upper}): "
+            f"unexpected error after {elapsed_ms:.0f}ms - {type(e).__name__}: {e}",
+            exc_info=True,
+        )
         return None
 
 
