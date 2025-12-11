@@ -16,6 +16,29 @@ from stock_index_info.models import IncomeRecord
 logger = logging.getLogger(__name__)
 
 
+def format_currency(amount: float) -> str:
+    """Format a dollar amount in a compact human-readable format.
+
+    Args:
+        amount: Dollar amount (can be negative)
+
+    Returns:
+        Formatted string like "$12.5B", "$500.0M", "$50.0K", or "$5000"
+    """
+    negative = amount < 0
+    abs_amount = abs(amount)
+    prefix = "-" if negative else ""
+
+    if abs_amount >= 1_000_000_000:
+        return f"{prefix}${abs_amount / 1_000_000_000:.1f}B"
+    elif abs_amount >= 1_000_000:
+        return f"{prefix}${abs_amount / 1_000_000:.1f}M"
+    elif abs_amount >= 10_000:
+        return f"{prefix}${abs_amount / 1_000:.1f}K"
+    else:
+        return f"{prefix}${int(abs_amount)}"
+
+
 def fetch_annual_net_income(ticker: str) -> Optional[list[IncomeRecord]]:
     """Fetch annual net income data from Alpha Vantage INCOME_STATEMENT API.
 

@@ -203,3 +203,45 @@ def test_fetch_annual_net_income_non_usd_currency():
         assert abs(r.net_income) < 50_000_000_000, (
             f"Net income {r.net_income} seems too large - currency conversion may have failed"
         )
+
+
+def test_format_currency_billions():
+    """Test formatting large numbers in billions."""
+    from stock_index_info.alpha_vantage import format_currency
+
+    assert format_currency(12_500_000_000) == "$12.5B"
+    assert format_currency(1_000_000_000) == "$1.0B"
+    assert format_currency(100_000_000_000) == "$100.0B"
+
+
+def test_format_currency_millions():
+    """Test formatting numbers in millions."""
+    from stock_index_info.alpha_vantage import format_currency
+
+    assert format_currency(500_000_000) == "$500.0M"
+    assert format_currency(50_000_000) == "$50.0M"
+    assert format_currency(1_000_000) == "$1.0M"
+
+
+def test_format_currency_thousands():
+    """Test formatting numbers in thousands."""
+    from stock_index_info.alpha_vantage import format_currency
+
+    assert format_currency(500_000) == "$500.0K"
+    assert format_currency(50_000) == "$50.0K"
+
+
+def test_format_currency_small():
+    """Test formatting small numbers."""
+    from stock_index_info.alpha_vantage import format_currency
+
+    assert format_currency(5_000) == "$5000"
+    assert format_currency(500) == "$500"
+
+
+def test_format_currency_negative():
+    """Test formatting negative numbers."""
+    from stock_index_info.alpha_vantage import format_currency
+
+    assert format_currency(-12_500_000_000) == "-$12.5B"
+    assert format_currency(-500_000_000) == "-$500.0M"
